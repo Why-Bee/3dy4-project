@@ -68,7 +68,7 @@ from scipy import signal
 import math
 
 # use fmDemodArctan and fmPlotPSD
-from fmSupportLib import fmDemodArctan, fmPlotPSD
+from fmSupportLib import fmDemodArctan, fmPlotPSD, lpCoeff, own_lfilter
 # for take-home add your functions
 
 # the radio-frequency (RF) sampling rate
@@ -96,19 +96,21 @@ audio_Fs = 48e3
 
 # complete your own settings for the mono channel
 # (cutoff freq, audio taps, decimation rate, ...)
-# audio_Fc = ... change as needed (see spec in lab document)
-# audio_decim = ... change as needed (see spec in lab document)
-# audio_taps = ... change as you see fit
+audio_Fc = 16e3 # change as needed (see spec in lab document)
+audio_decim = 5 # change as needed (see spec in lab document)
+audio_taps = 101 # change as you see fit
 
 # flag that keeps track if your code is running for
 # in-lab (il_vs_th = 0) vs takehome (il_vs_th = 1)
-il_vs_th = 0
+il_vs_th = 1
 
 if __name__ == "__main__":
 
 	# read the raw IQ data from the recorded file
 	# IQ data is assumed to be in 8-bits unsigned (and interleaved)
-	in_fname = "../data/iq_samples.raw"
+	in_fname = "../data/iq_samples/samples9.raw"
+	# in_fname = "/usr/raw_data/iq_samples/samples1.raw"
+
 	raw_data = np.fromfile(in_fname, dtype='uint8')
 	print("Read raw RF data from \"" + in_fname + "\" in unsigned 8-bit format")
 	# IQ data is normalized between -1 and +1 in 32-bit float format
@@ -144,39 +146,39 @@ if __name__ == "__main__":
 	if il_vs_th == 0:
 		# to be updated by you during the in-lab session based on firwin
 		# same principle  as for rf_coeff (but different arguments, of course)
-		audio_coeff = np.array([])
+		audio_coeff = signal.firwin(audio_taps, audio_Fc/((rf_Fs/rf_decim)/2), window=('hann'))
 	else:
-		# to be updated by you for the takehome exercise
+		# to be updated by you for the takehome rf_decimexercise
 		# with your own code for impulse response generation
-		audio_coeff = np.array([])
+		audio_coeff = lpCoeff(Fs = (rf_Fs/rf_decim), Fc = audio_Fc, ntaps = audio_taps) # our version normalizes the cutoff frequency internally
 
 	# extract the mono audio data through filtering
 	if il_vs_th == 0:
 		# to be updated by you during the in-lab session based on lfilter
 		# same principle as for i_filt or q_filt (but different arguments)
-		audio_filt = np.array([])
+		audio_filt = signal.lfilter(audio_coeff, 1.0, fm_demod)
 	else:
 		# to be updated by you for the takehome exercise
 		# with your own code for single pass convolution
-		audio_filt = np.array([])
+		audio_filt = own_lfilter(filter_coeff=audio_coeff, sig=fm_demod)
 
 	# you should uncomment the plots below once you have processed the data
 
 	# PSD after extracting mono audio
-	# fmPlotPSD(ax1, audio_filt, (rf_Fs/rf_decim)/1e3, subfig_height[1], 'Extracted Mono')
+	fmPlotPSD(ax1, audio_filt, (rf_Fs/rf_decim)/1e3, subfig_height[1], 'Extracted Mono')
 
 	# downsample audio data (see the principle for i_ds or q_ds)
-	audio_data = np.array([]) # to be updated by you during in-lab (same code for takehome)
+	audio_data = audio_filt[::audio_decim] # to be updated by you during in-lab (same code for takehome)
 
 	# PSD after decimating mono audio
-	# fmPlotPSD(ax2, audio_data, audio_Fs/1e3, subfig_height[2], 'Downsampled Mono Audio')
+	fmPlotPSD(ax2, audio_data, audio_Fs/1e3, subfig_height[2], 'Downsampled Mono Audio')
 
 	# save PSD plots
 	fig.savefig("../data/fmMonoBasic.png")
 	plt.show()
 
 	# write audio data to file (assumes audio_data samples are -1 to +1)
-	out_fname = "../data/fmMonoBasic.wav"
+	out_fname = "../data/fmMonoBasic_1.wav"
 	wavfile.write(out_fname, int(audio_Fs), np.int16((audio_data/2)*32767))
 	# during FM transmission audio samples in the mono channel will contain
 	# the sum of the left and right audio channels; hence, we first

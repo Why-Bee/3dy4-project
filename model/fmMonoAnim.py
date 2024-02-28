@@ -27,6 +27,8 @@ rf_taps = 101
 rf_decim = 10
 
 audio_Fs = 48e3
+audio_Fc = 16e3
+audio_taps = 101
 audio_decim = 5
 # add other settings for audio, like filter taps, ...
 
@@ -41,7 +43,7 @@ def animate_init():
 # the subsequent arguments are custom to this particular application
 def animate_update(block_count, iq_data, block_size, rf_coeff, audio_coeff):
 
-	global audio_data, state_i_lpf_100k, state_q_lpf_100k, state_phase
+	global audio_data, state_i_lpf_100k, state_q_lpf_100k, state_phase, audio_state
 
 	if (block_count+1)*block_size > len(iq_data):
 		print('Finished processing all the blocks from the recorded I/Q samples')
@@ -70,27 +72,31 @@ def animate_update(block_count, iq_data, block_size, rf_coeff, audio_coeff):
 	fmPlotPSD(ax0, fm_demod, (rf_Fs/rf_decim)/1e3, subfig_height[0], \
 					'Demodulated FM (block ' + str(block_count) + ')')
 
+	# get the audio coeffs
+	audio_coeff = signal.firwin(audio_taps, audio_Fc/((rf_Fs/rf_decim)/2), window=('hann'))
+
 	# extract the mono audio data through filtering
-	# audio_filt = ... change as needed
+	audio_filt, audio_state = signal.lfilter(audio_coeff, 1.0, fm_demod, zi=audio_state)
 
 	# plot PSD after extracting mono audio
-	# ... change as needed
+	fmPlotPSD(ax1, audio_filt, (rf_Fs/rf_decim)/1e3, subfig_height[1], 'Extracted Mono')
 
 	# downsample audio data
-	# audio_block =  ... change as needed
+	audio_block =  audio_filt[::audio_decim]
 
 	# plot PSD after downsampling mono audio
-	# ... change as needed
+	fmPlotPSD(ax2, audio_block, audio_Fs/1e3, subfig_height[2], 'Downsampled Mono Audio')
 
 	# concatenate the most recently processed audio_block
 	# to the previous blocks stored already in audio_data
-	# audio_data = np.concatenate((audio_data, audio_block))
+	audio_data = np.concatenate((audio_data, audio_block))
 
 if __name__ == "__main__":
 
 	# read the raw IQ data from the recorded file
 	# IQ data is assumed to be in 8-bits unsigned (and interleaved)
-	in_fname = "../data/iq_samples.raw"
+	# in_fname = "/usr/raw_data/iq_samples/samples1.raw"
+	in_fname = "../data/iq_samples/samples3.raw"
 	raw_data = np.fromfile(in_fname, dtype='uint8')
 	print("Read raw RF data from \"" + in_fname + "\" in unsigned 8-bit format")
 	# IQ data is normalized between -1 and +1 in 32-bit float format
@@ -122,6 +128,9 @@ if __name__ == "__main__":
 
 	# audio buffer that stores all the audio blocks
 	audio_data = np.array([])
+
+	#audio state
+	audio_state = np.zeros(100)
 
 	try:
 		# calls the animation function (animate_update) repeatedly
