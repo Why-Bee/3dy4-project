@@ -33,6 +33,7 @@
 !*.cpp
 !*.c
 !*.h
+!*.hpp
 !Makefile
 !makefile
 
