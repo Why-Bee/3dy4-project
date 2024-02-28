@@ -24,6 +24,7 @@
 !*.txt
 !*.pdf
 !*.png
+!*.obsidian
 
 # Python files
 !*.py
