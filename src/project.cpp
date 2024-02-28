@@ -14,6 +14,18 @@ Ontario, Canada
 #include "iofunc.h"
 #include "logfunc.h"
 
+
+
+// CURRENT TASKS:
+// Do the Mono implementation
+// Algorithm:
+// Step 1: Get data from the RF dongle and store it (IQ samples)
+// Step 2: Low-pass filter the data with cutoff of 2.4 Msamples/s
+// Step 3: Downsample the data to 240 ksamples/s
+// Step 4: Demodulate the data using custom arctan demodulator
+// Step 5: Low-pass filter the demodulated data with cutoff of 16 kHz
+// Step 6: Downsample to 48 ksamples/s
+// Step 7: Output this audio data to file
 int main()
 {
 	// binary files can be generated through the
