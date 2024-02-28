@@ -47,6 +47,18 @@ void readBinData(const std::string in_fname, std::vector<float> &bin_data)
 	fdin.close();
 }
 
+bool getBinData(std::vector<float>& bin_data, size_t block_size) {
+	bool status = true;
+	std::cin.read(reinterpret_cast<char*>(&bin_data[0]), block_size*sizeof(float));
+
+	if (std::cin.rdstate()!=0) {
+		std::cerr << "End of file..." << std::endl;
+		status = false;
+	}
+
+	return status;
+}
+
 // assumes data in the raw binary file is 32-bit float format
 void writeBinData(const std::string out_fname, const std::vector<float> &bin_data)
 {
