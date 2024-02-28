@@ -32,6 +32,69 @@ void computeVectorMagnitude(const std::vector<std::complex<float>> &Xf, std::vec
 }
 
 // add your own code to estimate the PSD
+void estimatePSD(std::vector<float> &freq, std::vector<float> &psd_est, const std::vector<float> &samples, const float Fs) {
+	float df = Fs / (float) NFFT; // resolution of the frequency bins
+
+	// frequency vector for X axis of the PSD plot
+	freq.clear(); freq.resize((int)Fs/2/df, float(0));
+	for(unsigned int i = 0; i < freq.size(); ++i){
+		freq[i] = i*df;
+	}
+
+	// smoothen discrete data using Hann window to reduce spectral leakage after Fourier Transform
+	std::vector<float> hann;
+	for (unsigned int i = 0; i < NFFT; i++) {
+		hann.push_back(std::pow(std::sin(PI*i/NFFT), 2));
+	}
+	// vector storing the computed PSD for each segment
+	std::vector<float> PSDArr;
+	// number of segments used to compute the PSD
+	unsigned int numSegments = (unsigned int) std::floor(samples.size() / (float) NFFT);
+
+	std::vector<float> windowedSamples;
+
+	for (unsigned int k = 0; k < numSegments; ++k) {
+		windowedSamples.clear(); 
+		//windowedSamples.resize(NFFT, static_cast<float>(0));
+		// apply hann window before computing the Fourier Transform
+		for (unsigned int i = k*NFFT; i < (k+1)*NFFT; i++) {
+			// std::cout << "i = " << i << "\n";
+			windowedSamples.push_back(samples[i] * hann[i-k*NFFT]);
+		}
+		
+		// compute the Fourier Transform of the windowed samples
+		std::vector<std::complex<float>> Xf;
+		DFT(windowedSamples, Xf);
+		// keep only the positive frequencies
+		Xf.erase(Xf.begin() + NFFT/2, Xf.end());
+		// compute signal power PSD for each segment
+		std::vector<float> psd_seg(Xf.size(), float(0));
+		for (unsigned int i = 0; i < Xf.size(); i++) {
+			psd_seg[i] = (1/(Fs*NFFT/2)) * std::pow(std::abs(Xf[i]), 2);
+			psd_seg[i] *= 2; // double the power to account for the negative frequencies
+			psd_seg[i] = 10 * std::log10(psd_seg[i]); // convert to dB
+		}
+
+		// add the PSD of the current segment to the total PSD
+		PSDArr.insert(PSDArr.end(), psd_seg.begin(), psd_seg.end()); // concatenate the vectors
+	}
+	// compute the psd estimate by averaging the PSD of all segments
+	psd_est.clear(); psd_est.resize((int)NFFT/2, float(0));
+	// iterate through the segments
+	for (unsigned int k = 0; k < (unsigned int) NFFT/2; ++k) {
+		// iterate through the bins
+		for (unsigned int l = 0; l < numSegments; ++l) {
+			// sum the PSD of each segment for each bin
+			psd_est[k] += PSDArr[(int)(l*(int)NFFT/2)+k];
+		}
+		// average the PSD of each bin
+		psd_est[k] /= numSegments;
+	}
+
+	// for (auto &i : psd_est) {
+	// 	std::cout << i << " ";
+	// }
+}
 
 //////////////////////////////////////////////////////
 
