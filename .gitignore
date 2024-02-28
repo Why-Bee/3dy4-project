@@ -15,6 +15,7 @@
 !test/
 !build/
 !include/
+!notes/
 
 # The following file types are treated as exceptions
 
@@ -22,6 +23,7 @@
 !*.md
 !*.txt
 !*.pdf
+!*.png
 
 # Python files
 !*.py
