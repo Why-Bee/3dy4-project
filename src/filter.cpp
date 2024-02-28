@@ -35,12 +35,8 @@ void convolveFIR(std::vector<float> &y, const std::vector<float> &x, const std::
 {
 	// This function convolves x and h to get y, managing state.
 	// allocate memory for the output (filtered) data
-	y.clear(); 
-	//y.resize(x.size()+h.size()-1, 0.0);
-	y.resize(x.size(), 0.0);
+	y.clear(); y.resize(x.size(), 0.0);
 
-	// the rest of the code in this function is to be completed by you
-	// based on your understanding and the Python code from the first lab
 	for(int n = 0; n < y.size(); ++n) {
 		for(int k = 0; k < h.size(); ++k ){
 			if ( n - k >= 0 && n - k < x.size() ) {
@@ -56,21 +52,26 @@ void convolveFIR(std::vector<float> &y, const std::vector<float> &x, const std::
 	}
 }
 
-void convolveFIRdecim(std::vector<float> &y, const std::vector<float> &x, const std::vector<float> &h, const std::vector<float> &zi, int M)
+void convolveFIRdecim(std::vector<float> &y, const std::vector<float> &x, const std::vector<float> &h, std::vector<float> &zi, const int M)
 {
-	// This function convolves x and h to get y, managing state.
+	// This function convolves x and h to get y, managing state, and downsamples by M
+	// TODO consider empty initial zi
 	// allocate memory for the output (filtered) data
-	// TODO: this code does not work! Do not use this function, I still haven't implemented the decimation properly
-	y.clear(); y.resize((x.size()+h.size()-1)/M, 0.0);
+	y.clear(); y.resize(x.size()/M, 0.0);
 
-	// the rest of the code in this function is to be completed by you
-	// based on your understanding and the Python code from the first lab
-	for (int n = 0; n < y.size(); ++n) {
-		for (int k = 0; k < h.size(); ++k) {
-			if ((n*M-k) >= 0 && (n*M-k) < x.size()) { // check course notes for the efficient condition here
-				y[n] += h[k] * x[n*M-k];
-			}
-		}
+	int decim_n;
+    for (unsigned int n = 0; n < x.size(); n += M) {
+        decim_n = n/M;
+        for (unsigned int k = 0; k < h.size(); k++){
+            if (n - k >= 0) {
+                y[decim_n] += h[k] * x[n-k];
+            } else { // n- k < 0 take from state
+                y[decim_n] += h[k] * zi[n-k+(zi.size())];
+            }
+        }
+    }
+    for (unsigned int i = 0; i < zi.size(); ++i)	{
+		zi[i] = x[x.size() - zi.size() + i];
 	}
 }
 
