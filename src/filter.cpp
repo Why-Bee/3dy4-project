@@ -31,19 +31,46 @@ void impulseResponseLPF(float Fs, float Fc, unsigned short int num_taps, std::ve
 
 // function to compute the filtered output "y" by doing the convolution
 // of the input data "x" with the impulse response "h"
-void convolveFIR(std::vector<float> &y, const std::vector<float> &x, const std::vector<float> &h)
+void convolveFIR(std::vector<float> &y, const std::vector<float> &x, const std::vector<float> &h, std::vector<float> &zi)
 {
-	// bring your own functionality
+	// This function convolves x and h to get y, managing state.
 	// allocate memory for the output (filtered) data
-	y.clear(); y.resize(x.size()+h.size()-1, 0.0);
+	y.clear(); 
+	//y.resize(x.size()+h.size()-1, 0.0);
+	y.resize(x.size(), 0.0);
+
+	// the rest of the code in this function is to be completed by you
+	// based on your understanding and the Python code from the first lab
+	for(int n = 0; n < y.size(); ++n) {
+		for(int k = 0; k < h.size(); ++k ){
+			if ( n - k >= 0 && n - k < x.size() ) {
+				y[n] += h[k] * x[n-k];
+			}
+			else { // n- k < 0 take from state
+				y[n] += h[k] * zi[n-k+(zi.size())];
+			}
+		}
+	}
+	for (unsigned int i = 0; i < zi.size(); ++i)	{
+		zi[i] = x[x.size() - zi.size() + i];
+	}
+}
+
+void convolveFIRdecim(std::vector<float> &y, const std::vector<float> &x, const std::vector<float> &h, const std::vector<float> &zi, int M)
+{
+	// This function convolves x and h to get y, managing state.
+	// allocate memory for the output (filtered) data
+	// TODO: this code does not work! Do not use this function, I still haven't implemented the decimation properly
+	y.clear(); y.resize((x.size()+h.size()-1)/M, 0.0);
 
 	// the rest of the code in this function is to be completed by you
 	// based on your understanding and the Python code from the first lab
 	for (int n = 0; n < y.size(); ++n) {
 		for (int k = 0; k < h.size(); ++k) {
-			if ((n-k) >= 0 && (n-k) < x.size()) { // check course notes for the efficient condition here
-				y[n] += h[k] * x[n-k];
+			if ((n*M-k) >= 0 && (n*M-k) < x.size()) { // check course notes for the efficient condition here
+				y[n] += h[k] * x[n*M-k];
 			}
 		}
 	}
 }
+
