@@ -42,6 +42,7 @@ int main()
 	// ... in-lab ...
 	// compute the Fourier transform
 	// the function is already provided in fourier.cpp
+	DFT(slice_data, Xf);
 
 	// compute the magnitude of each frequency bin
 	// note: we are concerned only with the magnitude of the frequency bin
@@ -50,6 +51,7 @@ int main()
 	// ... in-lab ...
 	// compute the magnitude of each frequency bin
 	// the function is already provided in fourier.cpp
+	computeVectorMagnitude(Xf, Xmag);
 
 	// log the frequency magnitude vector
 	vector_index.clear();
@@ -62,6 +64,10 @@ int main()
 	//
 	// ... complete as part of the take-home ...
 	//
+	std::vector<float> freq, psd_est;
+	const float Fs = 240;
+	estimatePSD(freq, psd_est, bin_data, Fs);
+	logVector("demod_psd", freq, psd_est);
 
 	// if you wish to write some binary files, see below example
 	//
@@ -71,8 +77,10 @@ int main()
 	// output files can be imported, for example, in Python
 	// for additional analysis or alternative forms of visualization
 
-	// naturally, you can comment the line below once you are comfortable to run GNU plot
+	// nayturally, you can comment the line below once you are comfortable to run GNU plot
 	std::cout << "Run: gnuplot -e 'set terminal png size 1024,768' ../data/example.gnuplot > ../data/example.png\n";
+	std::string commandLine= "gnuplot -e 'set terminal png size 1024,768' ../data/example.gnuplot > ../data/example.png";
+	int returnCode = system(commandLine.c_str());
 
 	return 0;
 }
