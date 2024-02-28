@@ -13,8 +13,7 @@ Ontario, Canada
 #include "genfunc.h"
 #include "iofunc.h"
 #include "logfunc.h"
-
-
+#include "cxxopts.hpp"
 
 // CURRENT TASKS:
 // Do the Mono implementation
@@ -26,13 +25,53 @@ Ontario, Canada
 // Step 5: Low-pass filter the demodulated data with cutoff of 16 kHz
 // Step 6: Downsample to 48 ksamples/s
 // Step 7: Output this audio data to file
-int main()
+enum class AudioChan {
+	Mono,
+	Stereo,
+	Rbds,
+};
+
+enum class Mode {
+	Mode0,
+	Mode1,
+	Mode2,
+	Mode3,
+};
+
+int main(int argc, char* argv[])
 {
-	// binary files can be generated through the
-	// Python models from the "../model/" sub-folder
-	const std::string in_fname = "../data/fm_demod_10.bin";
-	std::vector<float> bin_data;
-	readBinData(in_fname, bin_data);
+	AudioChan audio_chan = AudioChan::Mono;
+	Mode mode = Mode::Mode0;
+
+	// cxxopts::Options options("3DY4 Project", "Group 30");
+
+    // options.add_options()
+    //     ("c,channel", "Select path [m, s, r]")
+    //     ("m,mode", "Select mode [0, 1, 2, 3]");
+
+    // try {
+    //     auto result = options.parse(argc, argv);
+
+    //     if (result.count("channel")) {
+    //         audio_chan = AudioChan::MONO;
+    //     } else {
+	// 		std::cerr << "No channel passed, using Mono." << std::endl;
+	// 	}
+
+    //     std::cerr << "Output file: " << result["output"].as<std::string>() << std::endl;
+    // } catch (const cxxopts::OptionException& e) {
+    //     std::cerr << "Error parsing options: " << e.what() << std::endl;
+    //     return 1;
+    // }
+
+	std::vector<float> bin_data(10000);
+	getBinData(bin_data, 10000);
+
+	// // binary files can be generated through the
+	// // Python models from the "../model/" sub-folder
+	// const std::string in_fname = "../data/fm_demod_10.bin";
+	// std::vector<float> bin_data;
+	// readBinData(in_fname, bin_data);
 
 	// generate an index vector to be used by logVector on the X axis
 	std::vector<float> vector_index;
@@ -90,7 +129,7 @@ int main()
 	// for additional analysis or alternative forms of visualization
 
 	// nayturally, you can comment the line below once you are comfortable to run GNU plot
-	std::cout << "Run: gnuplot -e 'set terminal png size 1024,768' ../data/example.gnuplot > ../data/example.png\n";
+	std::cerr << "Run: gnuplot -e 'set terminal png size 1024,768' ../data/example.gnuplot > ../data/example.png\n";
 	std::string commandLine= "gnuplot -e 'set terminal png size 1024,768' ../data/example.gnuplot > ../data/example.png";
 	int returnCode = system(commandLine.c_str());
 

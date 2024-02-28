@@ -23,6 +23,8 @@ void printComplexVector(const std::vector<std::complex<float>> &);
 
 void readBinData(const std::string, std::vector<float> &);
 
+bool getBinData(std::vector<float>& bin_data, size_t block_size);
+
 void writeBinData(const std::string, const std::vector<float> &);
 
 #endif // DY4_IOFUNC_H
