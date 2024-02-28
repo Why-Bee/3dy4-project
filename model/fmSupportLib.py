@@ -6,10 +6,10 @@
 # McMaster University
 # Ontario, Canada
 #
-
+from __future__ import annotations
 import numpy as np
 import math, cmath
-
+from typing import Any, Tuple
 #
 # you should use the demodulator based on arctan given below as a reference
 #
@@ -30,6 +30,44 @@ import math, cmath
 # use the four quadrant arctan function for phase detect between a pair of
 # IQ samples; then unwrap the phase and take its derivative to demodulate
 #
+
+def custom_fm_demod(
+    I: Any | np.ndarray[Any, np.dtype[Any]],
+    Q: Any | np.ndarray[Any, np.dtype[Any]],
+    prev_I: Any | np.ndarray[Any, np.dtype[Any]] = np.float64(0.0),
+    prev_Q: Any | np.ndarray[Any, np.dtype[Any]] = np.float64(0.0),
+) -> Tuple[
+    np.ndarray[np.float64],
+    Any | np.ndarray[Any, np.dtype[Any]],
+    Any | np.ndarray[Any, np.dtype[Any]],
+]:
+    """Custom FM demodulator without using computationally heavy arctan function.
+    params:
+            I: in-phase samples
+            Q: quadrature samples
+            prev_I: previous in-phase sample
+            prev_Q: previous quadrature sample
+    returns:
+            fm_demod: demodulated samples
+            prev_I: last in-phase sample
+            prev_Q: last quadrature sample
+    """
+    fm_demod: np.NDArray[np.float64] = np.empty(len(I))
+
+    for k, _ in enumerate(I):
+
+        denom = I[k] ** 2 + Q[k] ** 2
+        # equation (13-117) from the link above - finite difference used as this is discretized
+        if denom: 
+            fm_demod[k] = ((I[k] * (Q[k] - prev_Q)) - (Q[k] * (I[k] - prev_I))) / denom
+        else: 
+            fm_demod[k] = np.float64(0.0)
+
+        # save current I and Q to compute the next derivative
+        prev_I = I[k]
+        prev_Q = Q[k]
+
+    return fm_demod, prev_I, prev_Q
 
 def fmDemodArctan(I, Q, prev_phase = 0.0):
 #
@@ -190,6 +228,41 @@ def fmPlotPSD(ax, samples, Fs, height, title):
 	ax.set_xlabel('Frequency (kHz)')
 	ax.set_ylabel('PSD (db/Hz)')
 	ax.set_title(title)
+
+# takehome function for 1 and 2
+# own Lfilter (convolution) function
+def own_lfilter(filter_coeff, sig, zi = None):
+
+	ntaps = len(filter_coeff)
+	# sig = concat(zi, sig)
+
+	y = np.zeros(ntaps + len(sig) - 1)
+	for n in range(len(y)): # for each output sample
+		for k in range(ntaps): # each filter coefficient
+			if n-k < len(sig):
+				if n-k < 0 and zi is not None:
+					y[n] += filter_coeff[k] * zi[n-k]
+				elif n-k >= 0:
+					y[n] += filter_coeff[k] * sig[n-k]
+					# print(str(n) + " " + str(k))
+
+	if zi is not None: return (y[:len(y)-ntaps+1], sig[len(sig)-ntaps+1:])
+	else: return y
+
+# takehome function for 1 and 2
+# own firwin (impulse response) function
+def lpCoeff(Fs, Fc, ntaps):
+	normf = Fc/(Fs/2) # Normalise the cutoff
+	taps = np.zeros(ntaps)
+
+	for i in range(ntaps):
+		if i == (ntaps-1)/2:
+			taps[i] = normf
+		else:
+			taps[i] = normf * ( np.sin(np.pi*normf*(i-(ntaps-1)/2)) ) / ( np.pi*normf*(i-(ntaps-1)/2) )
+		taps[i] *= (np.sin(i*np.pi/ntaps))**2
+
+	return taps
 
 if __name__ == "__main__":
 
