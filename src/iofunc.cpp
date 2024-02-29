@@ -50,7 +50,7 @@ void readBinData(const std::string in_fname, std::vector<float> &bin_data)
 bool getBinData(std::vector<float>& bin_data, size_t block_size) {
 	bool status = true;
 	bin_data.resize(block_size);
-	std::cin.read(reinterpret_cast<char*>(&bin_data[0]), block_size*sizeof(float));
+	std::cin.read(reinterpret_cast<char*>(&bin_data[0]), block_size*sizeof(char));
 
 	if (std::cin.rdstate()!=0) {
 		std::cerr << "End of file..." << std::endl;
@@ -58,7 +58,7 @@ bool getBinData(std::vector<float>& bin_data, size_t block_size) {
 	}
 	// normalize the input data to be in the range of [-1, 1]
 	for (size_t k = 0; k < block_size; ++k) {
-        bin_data[k] = static_cast<float>((static_cast<unsigned char>(bin_data[k]) - 128) / 128.0);
+        bin_data[k] = static_cast<float>(((bin_data[k]) - 128) / 128.0);
     }
 
 	return status;
