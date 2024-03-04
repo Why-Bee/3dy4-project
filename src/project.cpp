@@ -40,6 +40,8 @@ enum class Mode {
 	Mode3,
 };
 
+
+
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
 constexpr unsigned short int kRfNumTaps = 101;
@@ -54,11 +56,11 @@ int main(int argc, char* argv[])
 {
 	AudioChan audio_chan = AudioChan::Mono;
 	Mode mode = Mode::Mode0;
-	size_t block_size = 1024 * kRfDecimation * kMonoDecimation; // 2.4MSamples/s * 30ms
+	size_t block_size = 2 * 1024 * kRfDecimation * kMonoDecimation; // 2.4MSamples/s * 30ms
 	uint32_t block_count = 0;
 
-	std::vector<float> rf_state_i(kRfNumTaps-1);
-	std::vector<float> rf_state_q(kRfNumTaps-1);
+	std::vector<float> rf_state_i(kRfNumTaps-1, 0);
+	std::vector<float> rf_state_q(kRfNumTaps-1, 0);
 
 	float demod_state_i = 0.0;
 	float demod_state_q = 0.0;	
@@ -91,8 +93,9 @@ int main(int argc, char* argv[])
 					   kMonoNumTaps,
 					   mono_coeffs);
 
+	//std::cerr << "block size: " << block_size << std::endl;
 	while (getBinData(raw_bin_data, block_size)) {
-		std::cerr << "block count: " << block_count++ << std::endl;
+		//std::cerr << "block count: " << block_count++ << std::endl;
 
 		raw_bin_data_i.clear(); raw_bin_data_i.resize(block_size/2);
 		raw_bin_data_q.clear(); raw_bin_data_q.resize(block_size/2);
@@ -101,13 +104,15 @@ int main(int argc, char* argv[])
 			raw_bin_data_q.push_back(raw_bin_data[i+1]);
 		}
 
+		//std::cerr << "split i and q" << std::endl;
+
 		convolveFIRdecim(pre_fm_demod_i, 
 						 raw_bin_data_i,
 						 rf_coeffs, 
 						 rf_state_i,
 						 kRfDecimation);
 
-		std::cerr << "Convolved i" << std::endl;
+		//std::cerr << "Convolved i" << std::endl;
 		
 
 		convolveFIRdecim(pre_fm_demod_q, 
@@ -116,7 +121,7 @@ int main(int argc, char* argv[])
 						 rf_state_q,
 						 kRfDecimation);
 
-		std::cerr << "Convolved q" << std::endl;
+		//std::cerr << "Convolved q" << std::endl;
 
 
 		// convolveFIRdecimIQ(pre_fm_demod_i, 
@@ -133,7 +138,7 @@ int main(int argc, char* argv[])
 					  demod_state_q, 
 					  demodulated_samples);
 
-		std::cerr << "Fm demoded" << std::endl;
+		//std::cerr << "Fm demoded" << std::endl;
 		
 		convolveFIRdecim(float_audio_data, 
 						 demodulated_samples, 
@@ -141,11 +146,12 @@ int main(int argc, char* argv[])
 						 mono_state,
 						 kMonoDecimation);
 		
-		std::cerr << "mono audio convolved" << std::endl;
-
+		//std::cerr << "mono audio convolved" << std::endl;
+		
+		s16_audio_data.clear() ; s16_audio_data.resize(float_audio_data.size());
 		for (unsigned int k=0; k<float_audio_data.size(); k++) {
 			if (std::isnan(float_audio_data[k])) float_audio_data[k] = 0;
-			else s16_audio_data[k] = static_cast<int16_t>(float_audio_data[k]*std::numeric_limits<int16_t>::max()+1);
+			s16_audio_data[k] = static_cast<int16_t>(float_audio_data[k]*std::numeric_limits<int16_t>::max()+1);
 		}
 
 		fwrite(&s16_audio_data[0], sizeof(int16_t), s16_audio_data.size(), stdout);

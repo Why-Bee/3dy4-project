@@ -64,14 +64,15 @@ void convolveFIRdecim(std::vector<float> &y,
 	y.clear(); y.resize(x.size()/decimation, 0.0);
 
 	int decim_n;
-    for (unsigned int n = 0; n < x.size(); n += decimation) {
+    for (int n = 0; n < x.size(); n += decimation) {
         decim_n = n/decimation;
-        for (unsigned int k = 0; k < h.size(); k++){
-            if (n - k >= 0) {
-                y[decim_n] += h[k] * x[n-k];
-            } else { // n- k < 0 take from state
-                y[decim_n] += h[k] * zi[n-k+(zi.size())];
-            }
+        for (int k = 0; k < h.size(); k++){
+			if ( n - k >= 0 && n - k < x.size() ) {
+				y[decim_n] += h[k] * x[n-k];
+			}
+			else { // n- k < 0 take from state
+				y[decim_n] += h[k] * zi[n-k+(zi.size())];
+			}
         }
     }
     for (unsigned int i = 0; i < zi.size(); ++i)	{
