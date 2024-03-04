@@ -10,7 +10,7 @@ Ontario, Canada
 #include "demod.h"
 
 // function for FM demodulation without arctan
-void fm_demodulator(const std::vector<float>& I, const std::vector<float>& Q, float& prev_I, float& prev_Q, std::vector<float>& fm_demod_samples) {
+void fmDemodulator(const std::vector<float>& I, const std::vector<float>& Q, float& prev_I, float& prev_Q, std::vector<float>& fm_demod_samples) {
     fm_demod_samples.resize(I.size());
     for(unsigned int k = 0; k < (int)I.size(); ++k) {
         float denominator = std::pow(I[k], 2) + std::pow(Q[k], 2);

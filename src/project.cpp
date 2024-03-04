@@ -13,7 +13,9 @@ Ontario, Canada
 #include "genfunc.h"
 #include "iofunc.h"
 #include "logfunc.h"
-#include "cxxopts.hpp"
+#include "demod.h"
+
+#include <limits>
 
 // CURRENT TASKS:
 // Do the Mono implementation
@@ -38,101 +40,122 @@ enum class Mode {
 	Mode3,
 };
 
+
+
+constexpr float kRfSampleFrequency = 2.4e6;
+constexpr float kRfCutoffFrequency = 100e3;
+constexpr unsigned short int kRfNumTaps = 101;
+constexpr int kRfDecimation = 10;
+
+constexpr float kMonoSampleFrequency = 240e3;
+constexpr float kMonoCutoffFrequency = 16e3;
+constexpr unsigned short int kMonoNumTaps = 101;
+constexpr int kMonoDecimation = 5;
+
 int main(int argc, char* argv[])
 {
 	AudioChan audio_chan = AudioChan::Mono;
 	Mode mode = Mode::Mode0;
+	size_t block_size = 2 * 1024 * kRfDecimation * kMonoDecimation; // 2.4MSamples/s * 30ms
+	uint32_t block_count = 0;
 
-	// cxxopts::Options options("3DY4 Project", "Group 30");
+	std::vector<float> rf_state_i(kRfNumTaps-1, 0);
+	std::vector<float> rf_state_q(kRfNumTaps-1, 0);
 
-    // options.add_options()
-    //     ("c,channel", "Select path [m, s, r]")
-    //     ("m,mode", "Select mode [0, 1, 2, 3]");
+	float demod_state_i = 0.0;
+	float demod_state_q = 0.0;	
 
-    // try {
-    //     auto result = options.parse(argc, argv);
+	std::vector<float> mono_state(kMonoNumTaps-1);
 
-    //     if (result.count("channel")) {
-    //         audio_chan = AudioChan::MONO;
-    //     } else {
-	// 		std::cerr << "No channel passed, using Mono." << std::endl;
-	// 	}
+	std::vector<float> raw_bin_data;
+	std::vector<float> raw_bin_data_i;
+	std::vector<float> raw_bin_data_q;
 
-    //     std::cerr << "Output file: " << result["output"].as<std::string>() << std::endl;
-    // } catch (const cxxopts::OptionException& e) {
-    //     std::cerr << "Error parsing options: " << e.what() << std::endl;
-    //     return 1;
-    // }
-	
-	size_t block_size = 10000;
-	std::vector<float> bin_data(block_size);
-	getBinData(bin_data, block_size);
+	std::vector<float> pre_fm_demod_i;
+	std::vector<float> pre_fm_demod_q;
 
-	// // binary files can be generated through the
-	// // Python models from the "../model/" sub-folder
-	// const std::string in_fname = "../data/fm_demod_10.bin";
-	// std::vector<float> bin_data;
-	// readBinData(in_fname, bin_data);
+	std::vector<float> rf_coeffs;
+	std::vector<float> mono_coeffs;
 
-	// generate an index vector to be used by logVector on the X axis
-	std::vector<float> vector_index;
-	genIndexVector(vector_index, bin_data.size());
-	// log time data in the "../data/" subfolder in a file with the following name
-	// note: .dat suffix will be added to the log file in the logVector function
-	logVector("demod_time", vector_index, bin_data);
+	std::vector<float> demodulated_samples;
 
-	// take a slice of data with a limited number of samples for the Fourier transform
-	// note: NFFT constant is actually just the number of points for the
-	// Fourier transform - there is no FFT implementation ... yet
-	// unless you wish to wait for a very long time, keep NFFT at 1024 or below
-	std::vector<float> slice_data = \
-		std::vector<float>(bin_data.begin(), bin_data.begin() + NFFT);
-	// note: make sure that binary data vector is big enough to take the slice
+	std::vector<float> float_audio_data;
+	std::vector<int16_t> s16_audio_data;
 
-	// declare a vector of complex values for DFT
-	std::vector<std::complex<float>> Xf;
-	// ... in-lab ...
-	// compute the Fourier transform
-	// the function is already provided in fourier.cpp
-	DFT(slice_data, Xf);
+	// Calculate h(t)
+	impulseResponseLPF(kRfSampleFrequency, 
+					   kRfCutoffFrequency, 
+					   kRfNumTaps,
+					   rf_coeffs);
 
-	// compute the magnitude of each frequency bin
-	// note: we are concerned only with the magnitude of the frequency bin
-	// (there is NO logging of the phase response)
-	std::vector<float> Xmag;
-	// ... in-lab ...
-	// compute the magnitude of each frequency bin
-	// the function is already provided in fourier.cpp
-	computeVectorMagnitude(Xf, Xmag);
+	impulseResponseLPF(kMonoSampleFrequency, 
+					   kMonoCutoffFrequency, 
+					   kMonoNumTaps,
+					   mono_coeffs);
 
-	// log the frequency magnitude vector
-	vector_index.clear();
-	genIndexVector(vector_index, Xmag.size());
-	logVector("demod_freq", vector_index, Xmag); // log only positive freq
+	//std::cerr << "block size: " << block_size << std::endl;
+	while (getBinData(raw_bin_data, block_size)) {
+		//std::cerr << "block count: " << block_count++ << std::endl;
 
-	// for your take-home exercise - repeat the above after implementing
-	// your OWN function for PSD based on the Python code that has been provided
-	// note the estimate PSD function should use the entire block of "bin_data"
-	//
-	// ... complete as part of the take-home ...
-	//
-	std::vector<float> freq, psd_est;
-	const float Fs = 240;
-	estimatePSD(freq, psd_est, bin_data, Fs);
-	logVector("demod_psd", freq, psd_est);
+		raw_bin_data_i.clear(); raw_bin_data_i.resize(block_size/2);
+		raw_bin_data_q.clear(); raw_bin_data_q.resize(block_size/2);
+		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
+			raw_bin_data_i.push_back(raw_bin_data[i]);
+			raw_bin_data_q.push_back(raw_bin_data[i+1]);
+		}
 
-	// if you wish to write some binary files, see below example
-	//
-	// const std::string out_fname = "../data/outdata.bin";
-	// writeBinData(out_fname, bin_data);
-	//
-	// output files can be imported, for example, in Python
-	// for additional analysis or alternative forms of visualization
+		//std::cerr << "split i and q" << std::endl;
 
-	// nayturally, you can comment the line below once you are comfortable to run GNU plot
-	std::cerr << "Run: gnuplot -e 'set terminal png size 1024,768' ../data/example.gnuplot > ../data/example.png\n";
-	std::string commandLine= "gnuplot -e 'set terminal png size 1024,768' ../data/example.gnuplot > ../data/example.png";
-	int returnCode = system(commandLine.c_str());
+		convolveFIRdecim(pre_fm_demod_i, 
+						 raw_bin_data_i,
+						 rf_coeffs, 
+						 rf_state_i,
+						 kRfDecimation);
+
+		//std::cerr << "Convolved i" << std::endl;
+		
+
+		convolveFIRdecim(pre_fm_demod_q, 
+						 raw_bin_data_q,
+						 rf_coeffs, 
+						 rf_state_q,
+						 kRfDecimation);
+
+		//std::cerr << "Convolved q" << std::endl;
+
+
+		// convolveFIRdecimIQ(pre_fm_demod_i, 
+		// 				   pre_fm_demod_q, 
+		// 				   raw_bin_data, 
+		// 				   rf_coeffs, 
+		// 				   rf_state_i,
+		// 				   rf_state_q, 
+		// 				   kRfDecimation);
+
+		fmDemodulator(pre_fm_demod_i, 
+					  pre_fm_demod_q, 
+					  demod_state_i, 
+					  demod_state_q, 
+					  demodulated_samples);
+
+		//std::cerr << "Fm demoded" << std::endl;
+		
+		convolveFIRdecim(float_audio_data, 
+						 demodulated_samples, 
+						 mono_coeffs, 
+						 mono_state,
+						 kMonoDecimation);
+		
+		//std::cerr << "mono audio convolved" << std::endl;
+		
+		s16_audio_data.clear() ; s16_audio_data.resize(float_audio_data.size());
+		for (unsigned int k=0; k<float_audio_data.size(); k++) {
+			if (std::isnan(float_audio_data[k])) float_audio_data[k] = 0;
+			s16_audio_data[k] = static_cast<int16_t>(float_audio_data[k]*std::numeric_limits<int16_t>::max()+1);
+		}
+
+		fwrite(&s16_audio_data[0], sizeof(int16_t), s16_audio_data.size(), stdout);
+	}
 
 	return 0;
 }

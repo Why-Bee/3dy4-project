@@ -53,7 +53,7 @@ bool getBinData(std::vector<float>& bin_data, size_t block_size) {
 	std::cin.read(reinterpret_cast<char*>(&bin_data[0]), block_size*sizeof(char));
 
 	if (std::cin.rdstate()!=0) {
-		std::cerr << "End of file..." << std::endl;
+		std::cerr << "iostate " << std::cin.rdstate() << std::endl;
 		status = false;
 	}
 	// normalize the input data to be in the range of [-1, 1]
