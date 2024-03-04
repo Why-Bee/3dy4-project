@@ -1,26 +1,25 @@
-import numpy as np
-from scipy.io import wavfile
+import wave
+import struct
 
+def bin_to_wav(input_file, output_file, sample_width=2, num_channels=1, sample_rate=44100):
+    with open(input_file, 'rb') as f:
+        # Read binary data from the input file
+        bin_data = f.read()
+
+    # Determine number of frames
+    num_frames = len(bin_data) // sample_width // num_channels
+
+    # Open the output WAV file
+    with wave.open(output_file, 'w') as wav_file:
+        # Set WAV file parameters
+        wav_file.setnchannels(num_channels)
+        wav_file.setsampwidth(sample_width)
+        wav_file.setframerate(sample_rate)
+        
+        # Convert binary data to WAV format and write to WAV file
+        wav_data = struct.unpack('<' + 'h' * (num_frames * num_channels), bin_data)
+        wav_file.writeframesraw(struct.pack('<' + 'h' * (num_frames * num_channels), *wav_data))
+
+# Example usage:
 if __name__ == "__main__":
-	audio_Fs = 48e3;
-    # input binary file name (from where samples are read into Python)
-	# the default is JUST a SELF-CHECK; of course, change filenames as needed
-	in_fname = "../data/iq_samples.bin"
-	# in_fname = "../data/float32filtered.bin"
-	# read data from a binary file (assuming 32-bit floats)
-	float_data = np.fromfile(in_fname, dtype='int16')
-	print(" Read binary data from \"" + in_fname + "\" in int16 format")
-
-	# we assume below there are two audio channels where data is
-	# interleaved, i.e., left channel sample, right channel sample, ...
-	# for mono .wav files the reshaping below is unnecessary
-	# reshaped_data = np.reshape(float_data, (-1, 2))
-
-	
-
-	wavfile.write("../data/audio_processed.wav", \
-				audio_Fs, \
-				float_data.astype(np.int16))
-
-	# note: we can also dump audio data in other formats, if needed
-	# audio_data.astype('int16').tofile('int16samples.bin')
+	bin_to_wav("../data/iq_samples.bin", "../data/audio_processed.wav", sample_width=2, num_channels=1, sample_rate=48e3)

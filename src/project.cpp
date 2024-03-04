@@ -40,8 +40,6 @@ enum class Mode {
 	Mode3,
 };
 
-
-
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
 constexpr unsigned short int kRfNumTaps = 101;
