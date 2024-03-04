@@ -63,9 +63,10 @@ int main(int argc, char* argv[])
     //     std::cerr << "Error parsing options: " << e.what() << std::endl;
     //     return 1;
     // }
-
-	std::vector<float> bin_data(10000);
-	getBinData(bin_data, 10000);
+	
+	size_t block_size = 10000;
+	std::vector<float> bin_data(block_size);
+	getBinData(bin_data, block_size);
 
 	// // binary files can be generated through the
 	// // Python models from the "../model/" sub-folder
