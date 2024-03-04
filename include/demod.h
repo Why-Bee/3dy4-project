@@ -12,6 +12,10 @@ Ontario, Canada
 #include <vector>
 #include <cmath>
 
-void fm_demodulator(const std::vector<float>& , const std::vector<float>& , float& , float& , std::vector<float>& );
+void fmDemodulator(const std::vector<float>& I, 
+                   const std::vector<float>& Q, 
+                   float& prev_I, 
+                   float& prev_Q, 
+                   std::vector<float>& fm_demod_samples);
 
 #endif
