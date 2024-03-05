@@ -27,4 +27,6 @@ bool getBinData(std::vector<float>& bin_data, size_t block_size);
 
 void writeBinData(const std::string, const std::vector<float> &);
 
+void readStdinBlockData(unsigned int num_samples, unsigned int block_id, std::vector<float> &block_data);
+
 #endif // DY4_IOFUNC_H
