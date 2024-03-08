@@ -157,20 +157,20 @@ int main(int argc, char* argv[])
 		
 		//std::cerr << "mono audio convolved" << std::endl;
 		
-		// s16_audio_data.clear() ; s16_audio_data.resize(float_audio_data.size());
-		// for (unsigned int k=0; k<float_audio_data.size(); k++) {
-		// 	if (std::isnan(float_audio_data[k])) float_audio_data[k] = 0;
-		// 	s16_audio_data[k] = static_cast<int16_t>(float_audio_data[k]*std::numeric_limits<int16_t>::max()+1);
-		// }
-
-		// fwrite(&s16_audio_data[0], sizeof(int16_t), s16_audio_data.size(), stdout);
-
-		s16_audio_data.clear();
-		for (unsigned int k = 0; k < float_audio_data.size(); k++){
-				if (std::isnan(float_audio_data[k])) s16_audio_data.push_back(0);
-				else s16_audio_data.push_back(static_cast<short int>(float_audio_data[k]*16384));
+		s16_audio_data.clear() ; s16_audio_data.resize(float_audio_data.size());
+		for (unsigned int k=0; k<float_audio_data.size(); k++) {
+			if (std::isnan(float_audio_data[k])) float_audio_data[k] = 0;
+			s16_audio_data[k] = static_cast<int16_t>(float_audio_data[k]*(std::numeric_limits<int16_t>::max()+1));
 		}
+
 		fwrite(&s16_audio_data[0], sizeof(int16_t), s16_audio_data.size(), stdout);
+
+		// s16_audio_data.clear();
+		// for (unsigned int k = 0; k < float_audio_data.size(); k++){
+		// 		if (std::isnan(float_audio_data[k])) s16_audio_data.push_back(0);
+		// 		else s16_audio_data.push_back(static_cast<short int>(float_audio_data[k]*16384));
+		// }
+		// fwrite(&s16_audio_data[0], sizeof(int16_t), s16_audio_data.size(), stdout);
 	}
 
     // processing_thread.join();

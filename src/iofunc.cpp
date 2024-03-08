@@ -47,7 +47,7 @@ void readBinData(const std::string in_fname, std::vector<float> &bin_data)
 	fdin.close();
 }
 
-bool getBinData(std::vector<float>& bin_data, size_t block_size, unsigned int block_id) {
+bool getBinData(std::vector<float>& bin_data, size_t block_size) {
 	bool status = true;
 	bin_data.clear(); bin_data.resize(block_size);
 	std::cin.read(reinterpret_cast<char*>(&bin_data[0]), block_size*sizeof(char));
