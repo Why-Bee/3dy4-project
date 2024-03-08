@@ -108,8 +108,10 @@ int main(int argc, char* argv[])
 	
 		//std::cerr << "block count: " << block_count++ << std::endl;
 
-		raw_bin_data_i.clear(); raw_bin_data_i.resize(block_size/2);
-		raw_bin_data_q.clear(); raw_bin_data_q.resize(block_size/2);
+		raw_bin_data_i.clear(); 
+		//raw_bin_data_i.resize(block_size/2);
+		raw_bin_data_q.clear(); 
+		//raw_bin_data_q.resize(block_size/2); 
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
 			raw_bin_data_i.push_back(raw_bin_data[i]);
 			raw_bin_data_q.push_back(raw_bin_data[i+1]);
