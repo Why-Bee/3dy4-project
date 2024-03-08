@@ -162,7 +162,7 @@ int main(int argc, char* argv[])
 		s16_audio_data.clear() ; s16_audio_data.resize(float_audio_data.size());
 		for (unsigned int k=0; k<float_audio_data.size(); k++) {
 			if (std::isnan(float_audio_data[k])) float_audio_data[k] = 0;
-			s16_audio_data[k] = static_cast<int16_t>(float_audio_data[k]*(std::numeric_limits<int16_t>::max()+1));
+			else s16_audio_data[k] = static_cast<int16_t>(float_audio_data[k]*(std::numeric_limits<int16_t>::max()+1)/2);
 		}
 
 		fwrite(&s16_audio_data[0], sizeof(int16_t), s16_audio_data.size(), stdout);
