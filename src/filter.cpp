@@ -67,7 +67,7 @@ void convolveFIRdecim(std::vector<float> &y,
     for (int n = 0; n < x.size(); n += decimation) {
         decim_n = n/decimation;
         for (int k = 0; k < h.size(); k++){
-			if ( n - k >= 0 && n - k < x.size() ) {
+			if ( n - k >= 0 ) {
 				y[decim_n] += h[k] * x[n-k];
 			}
 			else { // n- k < 0 take from state
@@ -75,9 +75,9 @@ void convolveFIRdecim(std::vector<float> &y,
 			}
         }
     }
-    for (unsigned int i = 0; i < zi.size(); ++i)	{
-		zi[i] = x[x.size() - zi.size() + i];
-	}
+    for (int i = x.size() - h.size(); i < x.size(); i++){
+      zi[i - x.size() + h.size()] = x[i];
+    }
 }
 
 void convolveFIRdecimIQ(std::vector<float> &i_out, 

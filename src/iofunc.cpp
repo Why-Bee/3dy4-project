@@ -49,7 +49,7 @@ void readBinData(const std::string in_fname, std::vector<float> &bin_data)
 
 bool getBinData(std::vector<float>& bin_data, size_t block_size) {
 	bool status = true;
-	bin_data.resize(block_size);
+	bin_data.clear(); bin_data.resize(block_size);
 	std::cin.read(reinterpret_cast<char*>(&bin_data[0]), block_size*sizeof(char));
 
 	if (std::cin.rdstate()!=0) {
@@ -74,4 +74,13 @@ void writeBinData(const std::string out_fname, const std::vector<float> &bin_dat
 								sizeof(bin_data[i]));
 	}
 	fdout.close();
+}
+
+void readStdinBlockData(unsigned int num_samples, unsigned int block_id, std::vector<float> &block_data) {
+	std::vector<char> raw_data(num_samples);
+	std::cin.read(reinterpret_cast<char*>(&raw_data[0]), num_samples*sizeof(char));
+	for (int k = 0; k < (int)num_samples; k++){
+		block_data[k] = float(((unsigned char)raw_data[k]-128)/128.0);
+	}
+
 }
