@@ -30,5 +30,11 @@ void convolveFIRdecim(std::vector<float> &y,
                       const std::vector<float> &x, 
                       const std::vector<float> &h, 
                       std::vector<float> &zi, 
-                      const int decimation);
+                      int decimation);
+void convolveFIRResample(std::vector<float> &y, 
+					  const std::vector<float> &x, 
+					  const std::vector<float> &h, 
+					  std::vector<float> &zi, 
+					  int decimation,
+					  int upsampling_factor);
 #endif // DY4_FILTER_H
