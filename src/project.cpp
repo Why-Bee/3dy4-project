@@ -43,12 +43,12 @@ enum class Mode {
 
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
-constexpr unsigned short int kRfNumTaps = 151;
+constexpr unsigned short int kRfNumTaps = 101; // NOTE script works only for 151 here but not smth to rely on
 constexpr int kRfDecimation = 10;
 
 constexpr float kMonoSampleFrequency = 240e3;
 constexpr float kMonoCutoffFrequency = 16e3;
-constexpr unsigned short int kMonoNumTaps = 151*2;
+constexpr unsigned short int kMonoNumTaps = 101; // NOTE script works when I use 151*2 here
 constexpr int kMonoDecimation = 5;
 
 
@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
 	float demod_state_i = 0.0;
 	float demod_state_q = 0.0;	
 
-	std::vector<float> mono_state(kMonoNumTaps-1);
+	std::vector<float> mono_state(kMonoNumTaps-1, 0.0);
 
 	std::vector<float> raw_bin_data;
 	std::vector<float> raw_bin_data_i;
@@ -81,6 +81,38 @@ int main(int argc, char* argv[])
 
 	std::vector<float> float_audio_data;
 	std::vector<int16_t> s16_audio_data;
+
+	/* Parse command line arguments */
+	int mode = 0;
+	int channel = 0;
+
+	if (argc < 2) {
+		std::cerr << "Operating in default mode 0 and channel 0 (mono)" << std::endl;
+	} else if (argc == 2 || argc == 3) {
+		mode = std::atoi(argv[1]);
+		if (mode > 3 || mode < 0) {
+			std::cerr << "Invalid mode entered: " << mode << std::endl;
+			exit(1);
+		}
+		if (argc == 3) {
+			channel = std::atoi(argv[2]);
+			if (channel > 1 || channel < 0) {
+				std::cerr << "Invalid channel entered: " << channel << std::endl;
+				exit(1);
+			}
+		}
+	} else {
+		std::cerr << "Usage: " << argv[0] << std::endl;
+		std::cerr << "or " << argv[0] << " <mode>" << std::endl;
+		std::cerr << "\t\t <mode> is a value from 0 to 3" << std::endl;
+		exit(1);
+	}
+
+	if (channel == 0) {
+		std::cerr << "Operating in mode " << mode << " with mono channel" << std::endl;
+	} else if (channel == 1) {
+		std::cerr << "Operating in mode " << mode << " with stereo channel" << std::endl;
+	}
 
 	impulseResponseLPF(kRfSampleFrequency, 
 					   kRfCutoffFrequency, 
@@ -100,7 +132,7 @@ int main(int argc, char* argv[])
 		readStdinBlockData(block_size, block_id, raw_bin_data);
 
 		if ((std::cin.rdstate()) != 0){
-			std::cerr << "End of input steam" << std::endl;
+			std::cerr << "End of input stream reached" << std::endl;
 			exit(1);
 		}
 		std::cerr << "Read block " << block_id << std::endl;
@@ -108,10 +140,9 @@ int main(int argc, char* argv[])
 	
 		//std::cerr << "block count: " << block_count++ << std::endl;
 
+		// NOTE do not resize
 		raw_bin_data_i.clear(); 
-		//raw_bin_data_i.resize(block_size/2);
 		raw_bin_data_q.clear(); 
-		//raw_bin_data_q.resize(block_size/2); 
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
 			raw_bin_data_i.push_back(raw_bin_data[i]);
 			raw_bin_data_q.push_back(raw_bin_data[i+1]);
@@ -159,10 +190,11 @@ int main(int argc, char* argv[])
 		
 		//std::cerr << "mono audio convolved" << std::endl;
 		
-		s16_audio_data.clear() ; s16_audio_data.resize(float_audio_data.size());
+		s16_audio_data.clear() ; s16_audio_data.resize(block_size);
 		for (unsigned int k=0; k<float_audio_data.size(); k++) {
-			if (std::isnan(float_audio_data[k])) float_audio_data[k] = 0;
-			s16_audio_data[k] = static_cast<int16_t>(float_audio_data[k]*(std::numeric_limits<int16_t>::max()+1));
+			if (std::isnan(float_audio_data[k])) s16_audio_data[k] = 0;
+			// NOTE try multiplication by 16384 on dongle
+			else s16_audio_data[k] = static_cast<int16_t>(float_audio_data[k]*(std::numeric_limits<int16_t>::max()+1));
 		}
 
 		fwrite(&s16_audio_data[0], sizeof(int16_t), s16_audio_data.size(), stdout);

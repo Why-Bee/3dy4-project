@@ -12,7 +12,6 @@ Ontario, Canada
 // function to compute the impulse response "h" based on the sinc function
 void impulseResponseLPF(float Fs, float Fc, unsigned short int num_taps, std::vector<float> &h)
 {
-	// bring your own functionality
 	// allocate memory for the impulse response
 	h.clear(); h.resize(num_taps, 0.0);
 
@@ -56,7 +55,7 @@ void convolveFIRdecim(std::vector<float> &y,
 					  const std::vector<float> &x, 
 					  const std::vector<float> &h, 
 					  std::vector<float> &zi, 
-					  const int decimation)
+					  int decimation)
 {
 	// This function convolves x and h to get y, managing state, and downsamples by decimation
 	// TODO consider empty initial zi
@@ -76,6 +75,33 @@ void convolveFIRdecim(std::vector<float> &y,
         }
     }
     for (int i = x.size() - h.size(); i < x.size(); i++){
+      zi[i - x.size() + h.size()] = x[i];
+    }
+}
+
+void convolveFIRResample(std::vector<float> &y, 
+					  const std::vector<float> &x, 
+					  const std::vector<float> &h, 
+					  std::vector<float> &zi, 
+					  int decimation,
+					  int upsampling_factor)
+{
+	// TODO verify functionality
+	y.clear(); y.resize(x.size()*upsampling_factor/decimation, 0.0);
+
+	int phase, input_index;
+    for (int n = 0; n < y.size(); n++) {
+        phase = (n*decimation)%upsampling_factor;
+        for (int k = phase; k < h.size(); k += upsampling_factor){
+			input_index = static_cast<int>(n*decimation/upsampling_factor) - (k)/upsampling_factor;
+			if ( input_index >= 0 ) {
+				y[n] += h[k] * x[input_index] * upsampling_factor;
+			} else { // take from state
+				y[n] += h[k] * zi[input_index+(zi.size())] * upsampling_factor;
+			}
+        }
+    }
+    for (int i = x.size() - zi.size(); i < x.size(); i++){
       zi[i - x.size() + h.size()] = x[i];
     }
 }
