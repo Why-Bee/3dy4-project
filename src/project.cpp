@@ -61,11 +61,9 @@ int main(int argc, char* argv[])
 
 	std::vector<float> rf_state_i(kRfNumTaps-1, 0.0);
 	std::vector<float> rf_state_q(kRfNumTaps-1, 0.0);
-
+	std::vector<float> mono_state(kMonoNumTaps-1, 0.0);
 	float demod_state_i = 0.0;
 	float demod_state_q = 0.0;	
-
-	std::vector<float> mono_state(kMonoNumTaps-1, 0.0);
 
 	std::vector<float> raw_bin_data;
 	std::vector<float> raw_bin_data_i;
@@ -137,10 +135,13 @@ int main(int argc, char* argv[])
 		}
 		std::cerr << "Read block " << block_id << std::endl;
 
-	
 		//std::cerr << "block count: " << block_count++ << std::endl;
+<<<<<<< HEAD
 
 		// NOTE do not resize
+=======
+		// DO NOT RESIZE THESE
+>>>>>>> 692a5ee (Small cleanup)
 		raw_bin_data_i.clear(); 
 		raw_bin_data_q.clear(); 
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
@@ -158,7 +159,6 @@ int main(int argc, char* argv[])
 
 		//std::cerr << "Convolved i" << std::endl;
 		
-
 		convolveFIRdecim(pre_fm_demod_q, 
 						 raw_bin_data_q,
 						 rf_coeffs, 
