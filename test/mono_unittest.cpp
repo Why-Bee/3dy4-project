@@ -3,6 +3,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include "filter.h"
 
 // Define the test fixture class
 class DatFileComparisonTest : public ::testing::Test {
@@ -93,5 +94,22 @@ TEST_F(DatFileComparisonTest, QPreFmDemodFirst3Blocks) {
         for (size_t i = 0; i < expected_data.size(); ++i) {
             ASSERT_NEAR(expected_data[i], actual_data[i], 1e-3); // Adjust epsilon as needed
         }
+    }
+}
+
+// Test case to compare .dat files
+TEST_F(DatFileComparisonTest, BandpassCoeffsSameAsModel) {
+    // Run Python script to generate actual .dat file
+    std::vector<float> expected_data = readDatFile<float>("../data/py_firwin_bp.dat");
+    std::vector<float> actual_data;
+
+    impulseResponseBPF(240e3, 22e3, 54e3, 101, actual_data);
+
+    // Assert that the sizes of both vectors are equal
+    ASSERT_EQ(expected_data.size(), actual_data.size());
+
+    // Iterate over each pair of values and perform EXPECT_NEAR
+    for (size_t i = 0; i < expected_data.size(); ++i) {
+        EXPECT_NEAR(expected_data[i], actual_data[i], 1e-3); // Adjust epsilon as needed
     }
 }

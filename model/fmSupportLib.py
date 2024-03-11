@@ -292,4 +292,4 @@ if __name__ == "__main__":
 
 	bp_coeffs = bpFirwin(Fs, Fb, Fe, num_taps)
 
-	logVector("firwin_bp", bp_coeffs)
+	logVector("py_firwin_bp", bp_coeffs)
