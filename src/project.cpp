@@ -57,7 +57,6 @@ int main(int argc, char* argv[])
 	// AudioChan audio_chan = AudioChan::Mono;
 	// Mode mode = Mode::Mode0;
 	size_t block_size = 2 * 1024 * kRfDecimation * kMonoDecimation; // 2.4MSamples/s * 30ms
-	uint32_t block_count = 0;
 
 	std::vector<float> rf_state_i(kRfNumTaps-1, 0.0);
 	std::vector<float> rf_state_q(kRfNumTaps-1, 0.0);
@@ -130,9 +129,7 @@ int main(int argc, char* argv[])
 	logVector("impulse_resp_mono", idx_vect, mono_coeffs);
 
 	std::cerr << "block size: " << block_size << std::endl;
-	// while (getBinData(raw_bin_data, block_size)) {
 	for (unsigned int block_id = 0; ;block_id++) {
-		//std::vector<float> raw_bin_data(block_size);
 		raw_bin_data.clear(); raw_bin_data.resize(block_size);
 		readStdinBlockData(block_size, block_id, raw_bin_data);
 
@@ -142,7 +139,6 @@ int main(int argc, char* argv[])
 		}
 		std::cerr << "Read block " << block_id << std::endl;
 
-		//std::cerr << "block count: " << block_count++ << std::endl;
 		// DO NOT RESIZE THESE
 		raw_bin_data_i.clear(); 
 		raw_bin_data_q.clear(); 
@@ -158,6 +154,13 @@ int main(int argc, char* argv[])
 						 rf_coeffs, 
 						 rf_state_i,
 						 kRfDecimation);
+		if (block_id < 3) {
+			genIndexVector(idx_vect, pre_fm_demod_i.size());
+			logVector("pre_fm_demod_i" + std::to_string(block_id),
+				idx_vect, 
+				pre_fm_demod_i);
+		}
+		
 
 		//std::cerr << "Convolved i" << std::endl;
 		
@@ -166,6 +169,12 @@ int main(int argc, char* argv[])
 						 rf_coeffs, 
 						 rf_state_q,
 						 kRfDecimation);
+		if (block_id < 3) {
+			genIndexVector(idx_vect, pre_fm_demod_q.size());
+			logVector("pre_fm_demod_q" + std::to_string(block_id),
+				idx_vect, 
+				pre_fm_demod_q);
+		}
 
 		//std::cerr << "Convolved q" << std::endl;
 

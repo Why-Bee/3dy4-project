@@ -98,14 +98,18 @@ if __name__ == "__main__":
 		i_filt, state_i_lpf_100k = signal.lfilter(rf_coeff, 1.0, \
 				iq_data[(block_count)*block_size:(block_count+1)*block_size:2],
 				zi=state_i_lpf_100k)
+
 		q_filt, state_q_lpf_100k = signal.lfilter(rf_coeff, 1.0, \
 				iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
 				zi=state_q_lpf_100k)
+		
 
 		# downsample the I/Q data from the FM channel
 		i_ds = i_filt[::rf_decim]
 		q_ds = q_filt[::rf_decim]
 
+		if block_count in [0, 1, 2]: logVector(f"py_pre_fm_demod_i{block_count}", i_ds)
+		if block_count in [0, 1, 2]: logVector(f"py_pre_fm_demod_q{block_count}", q_ds)
 		# FM demodulator
 		if il_vs_th == 0:
 			# already given to you for the in-lab
