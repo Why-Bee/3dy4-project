@@ -14,7 +14,7 @@ import numpy as np
 import math
 
 # use fmDemodArctan and fmPlotPSD
-from fmSupportLib import fmDemodArctan, fmPlotPSD, own_lfilter, lpCoeff, custom_fm_demod
+from fmSupportLib import fmDemodArctan, fmPlotPSD, own_lfilter, lpCoeff, custom_fm_demod, logVector
 # for take-home add your functions
 
 rf_Fs = 2.4e6
@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
 	# read the raw IQ data from the recorded file
 	# IQ data is assumed to be in 8-bits unsigned (and interleaved)
-	in_fname = "../data/iq_samples/samples5.raw"
+	in_fname = "../data/samples9.raw"
 	# in_fname = "/usr/raw_data/iq_samples/samples1.raw"
 	raw_data = np.fromfile(in_fname, dtype='uint8')
 	print("Read raw RF data from \"" + in_fname + "\" in unsigned 8-bit format")
@@ -47,6 +47,8 @@ if __name__ == "__main__":
 	# coefficients for the front-end low-pass filter
 	rf_coeff = signal.firwin(rf_taps, rf_Fc/(rf_Fs/2), window=('hann'))
 
+	logVector("py_impulse_resp_rf", rf_coeff);
+
 	# coefficients for the filter to extract mono audio
 	if il_vs_th == 0:
 		# to be updated by you during the in-lab session based on firwin
@@ -56,6 +58,8 @@ if __name__ == "__main__":
 		# to be updated by you for the takehome exercise
 		# with your own code for impulse response generation
 		audio_coeff = lpCoeff((rf_Fs/rf_decim), audio_Fc, audio_taps)
+
+		logVector("py_impulse_resp_mono", audio_coeff);
 
 	# set up the subfigures for plotting
 	subfig_height = np.array([0.8, 2, 1.6]) # relative heights of the subfigures

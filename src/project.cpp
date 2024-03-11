@@ -117,10 +117,17 @@ int main(int argc, char* argv[])
 					   kRfNumTaps,
 					   rf_coeffs);
 
+	std::vector<float> idx_vect;
+	genIndexVector(idx_vect, rf_coeffs.size());
+	logVector("impulse_resp_rf", idx_vect, rf_coeffs);
+
 	impulseResponseLPF(kMonoSampleFrequency, 
 					   kMonoCutoffFrequency, 
 					   kMonoNumTaps,
 					   mono_coeffs);
+
+	genIndexVector(idx_vect, mono_coeffs.size());
+	logVector("impulse_resp_mono", idx_vect, mono_coeffs);
 
 	std::cerr << "block size: " << block_size << std::endl;
 	// while (getBinData(raw_bin_data, block_size)) {
@@ -136,12 +143,7 @@ int main(int argc, char* argv[])
 		std::cerr << "Read block " << block_id << std::endl;
 
 		//std::cerr << "block count: " << block_count++ << std::endl;
-<<<<<<< HEAD
-
-		// NOTE do not resize
-=======
 		// DO NOT RESIZE THESE
->>>>>>> 692a5ee (Small cleanup)
 		raw_bin_data_i.clear(); 
 		raw_bin_data_q.clear(); 
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){

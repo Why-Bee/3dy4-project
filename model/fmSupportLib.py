@@ -268,3 +268,15 @@ if __name__ == "__main__":
 
 	# do nothing when this module is launched on its own
 	pass
+
+
+def logVector(filename: str, data):
+	# Define x-axis
+	x_axis = np.arange(len(data))
+
+	# Create a structured array with x_axis and data
+	structured_data = np.column_stack((x_axis, data))
+
+	# Save the structured array to a .dat file
+	np.savetxt(f'../data/{filename}.dat', structured_data, fmt='%d\t%.8e', delimiter='\t', header='x_axis\ty_axis', comments='')
+
