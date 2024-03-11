@@ -272,13 +272,6 @@ def bpFirwin(Fs, Fb, Fe, num_taps):
 
 	return firwin_coeff
 
-if __name__ == "__main__":
-	Fs = 240e3
-	Fb = 22e3
-	Fe = 54e3
-	num_taps = 101
-
-	bp_coeffs = bpFirwin(Fs, Fb, Fe, num_taps)
 
 
 def logVector(filename: str, data):
@@ -290,3 +283,13 @@ def logVector(filename: str, data):
 
 	# Save the structured array to a .dat file
 	np.savetxt(f'../data/{filename}.dat', structured_data, fmt='%d\t%.8e', delimiter='\t', header='x_axis\ty_axis', comments='')
+
+if __name__ == "__main__":
+	Fs = 240e3
+	Fb = 22e3
+	Fe = 54e3
+	num_taps = 101
+
+	bp_coeffs = bpFirwin(Fs, Fb, Fe, num_taps)
+
+	logVector("firwin_bp", bp_coeffs)
