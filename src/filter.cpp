@@ -28,6 +28,26 @@ void impulseResponseLPF(float Fs, float Fc, unsigned short int num_taps, std::ve
 	}
 }
 
+// function to compute the impulse response "h" for a band pass filter
+void impulseResponseBPF(float Fs, float Fb, float Fe, unsigned short int num_taps, std::vector<float> &h) 
+{
+	h.clear(); h.resize(num_taps, 0.0);
+
+	float norm_center = ((Fe + Fb) / 2) / (Fs / 2);	// normalized center freq
+	float norm_pass = (Fe - Fb) / (Fs / 2);	// normalized pass band
+
+	for (int i = 0; i < num_taps; ++i) {
+		if (i == (num_taps - 1) / 2) {
+			h[i] = norm_pass;	// avoid division by zero
+		} else {
+			h[i] = norm_pass * ((std::sin(PI * (norm_pass / 2) * (i - ((num_taps - 1) / 2)))) / 
+								(PI * (norm_pass / 2) * (i - ((num_taps - 1) / 2))));
+		}
+		h[i] = h[i] * std::cos((i - ((num_taps - 1) / 2)) * PI * norm_center);
+		h[i] = h[i] * pow(std::sin((i * PI) / num_taps), 2);
+	}
+}
+
 // function to compute the filtered output "y" by doing the convolution
 // of the input data "x" with the impulse response "h"
 void convolveFIR(std::vector<float> &y, const std::vector<float> &x, const std::vector<float> &h, std::vector<float> &zi)
