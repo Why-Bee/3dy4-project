@@ -56,7 +56,7 @@ int main(int argc, char* argv[])
 {
 	// AudioChan audio_chan = AudioChan::Mono;
 	// Mode mode = Mode::Mode0;
-	size_t block_size = 2 * 1024 * kRfDecimation * kMonoDecimation; // 2.4MSamples/s * 30ms
+	static constexpr size_t block_size = 2 * 1024 * kRfDecimation * kMonoDecimation;
 
 	std::vector<float> rf_state_i(kRfNumTaps-1, 0.0);
 	std::vector<float> rf_state_q(kRfNumTaps-1, 0.0);
@@ -147,8 +147,39 @@ int main(int argc, char* argv[])
 			raw_bin_data_q.push_back(raw_bin_data[i+1]);
 		}
 
-		//std::cerr << "split i and q" << std::endl;
+		if (block_id < 4) {
+			genIndexVector(idx_vect, raw_bin_data_i.size());
+			logVector("samples_i" + std::to_string(block_id),
+				idx_vect, 
+				raw_bin_data_i);	
+		}
+		if (block_id < 4) {
+			genIndexVector(idx_vect, raw_bin_data_q.size());
+			logVector("samples_q" + std::to_string(block_id),
+				idx_vect, 
+				raw_bin_data_q);
+		}
 
+		//std::cerr << "split i and q" << std::endl;
+		#define DEBUG_CONVOLVE_DECIM 0
+		#if DEBUG_CONVOLVE_DECIM
+		std::cerr << "DEBUG_CONVOLVE_DECIM" << std::endl;
+		convolveFIR(pre_fm_demod_i, 
+						 raw_bin_data_i,
+						 rf_coeffs, 
+						 rf_state_i);
+
+		std::vector<float> temp;
+		for (int i = 0; i < pre_fm_demod_i.size(); i+=kRfDecimation) {
+			temp.push_back(pre_fm_demod_i[i]);
+		}
+		if (block_id < 3) {
+			genIndexVector(idx_vect, temp.size());
+			logVector("pre_fm_demod_i" + std::to_string(block_id),
+				idx_vect, 
+				temp);
+		}
+		#else
 		convolveFIRdecim(pre_fm_demod_i, 
 						 raw_bin_data_i,
 						 rf_coeffs, 
@@ -160,7 +191,7 @@ int main(int argc, char* argv[])
 				idx_vect, 
 				pre_fm_demod_i);
 		}
-		
+		#endif
 
 		//std::cerr << "Convolved i" << std::endl;
 		

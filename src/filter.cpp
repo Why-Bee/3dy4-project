@@ -8,6 +8,7 @@ Ontario, Canada
 
 #include "dy4.h"
 #include "filter.h"
+#include "logfunc.h"
 
 // function to compute the impulse response "h" based on the sinc function
 void impulseResponseLPF(float Fs, float Fc, unsigned short int num_taps, std::vector<float> &h)
@@ -77,16 +78,20 @@ void convolveFIRdecim(std::vector<float> &y,
 					  std::vector<float> &zi, 
 					  int decimation)
 {
+	static bool logIdx = true;
 	// This function convolves x and h to get y, managing state, and downsamples by decimation
 	// TODO consider empty initial zi
 	// allocate memory for the output (filtered) data
 	y.clear(); y.resize(x.size()/decimation, 0.0);
+	
+	if ((zi.size()!=h.size()-1)) 
+		std::cerr << "ERROR: zi not equal to  h.size-1" << std::endl;
 
 	int decim_n;
     for (int n = 0; n < x.size(); n += decimation) {
         decim_n = n/decimation;
         for (int k = 0; k < h.size(); k++){
-			if ( n - k >= 0 ) {
+			if ( (n - k) >= 0 ) {
 				y[decim_n] += h[k] * x[n-k];
 			}
 			else { // n- k < 0 take from state
@@ -94,9 +99,20 @@ void convolveFIRdecim(std::vector<float> &y,
 			}
         }
     }
-    for (int i = x.size() - h.size(); i < x.size(); i++){
-      zi[i - x.size() + h.size()] = x[i];
-    }
+
+	std::vector<float> indices(zi.size());
+	for (int i = 0; i < zi.size(); i++) {
+		int idx = (x.size()-1) + decimation*(-(zi.size()-1) + i);
+		indices[i] = static_cast<float>(idx);
+		zi[i] = x[idx];
+	}
+
+	if (logIdx) {
+		std::vector<float> idxVect;
+		genIndexVector(idxVect, indices.size());
+		logVector("indices_state_saving", idxVect, indices);
+		logIdx = false;
+	}
 }
 
 void upsample(std::vector<float> &y,

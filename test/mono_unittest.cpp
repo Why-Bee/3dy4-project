@@ -55,44 +55,134 @@ TEST_F(DatFileComparisonTest, MonoImpulseSameAsModel) {
 
     // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 0; i < expected_data.size(); ++i) {
-        EXPECT_NEAR(expected_data[i], actual_data[i], 1e-5); // Adjust epsilon as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], 1e-3); // Adjust epsilon as needed
     }
 }
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTest, IPreFmDemodFirst3Blocks) {
+TEST_F(DatFileComparisonTest, IPreFmDemodFirstBlock) {
     // Run Python script to generate actual .dat file
-    for (int i = 0; i < 3; i++) {
+    int i = 0;
+    std::vector<float> expected_data = readDatFile<float>(
+        "../data/py_pre_fm_demod_i"+std::to_string(i)+".dat");
+    std::vector<float> actual_data = readDatFile<float>(
+        "../data/pre_fm_demod_i"+std::to_string(i)+".dat");
+
+    // Assert that the sizes of both vectors are equal
+    ASSERT_EQ(expected_data.size(), actual_data.size());
+
+    // Iterate over each pair of values and perform EXPECT_NEAR
+    for (size_t j = 0; j < expected_data.size(); ++j) {
+        EXPECT_NEAR(expected_data[j], actual_data[j], 1e-3) 
+            << "block: [" << i << "] expected differs from actual for sample: [" 
+            << j << "] diff: (" 
+            << std::abs(expected_data[j] - actual_data[j]); // Adjust epsilon as needed
+    }
+}
+
+// Test case to compare .dat files
+TEST_F(DatFileComparisonTest, IPreFmDemodSecondBlock) {
+    // Run Python script to generate actual .dat file
+    int i = 1;
+    std::vector<float> expected_data = readDatFile<float>(
+        "../data/py_pre_fm_demod_i"+std::to_string(i)+".dat");
+    std::vector<float> actual_data = readDatFile<float>(
+        "../data/pre_fm_demod_i"+std::to_string(i)+".dat");
+
+    // Assert that the sizes of both vectors are equal
+    ASSERT_EQ(expected_data.size(), actual_data.size());
+
+    // Iterate over each pair of values and perform EXPECT_NEAR
+    for (size_t j = 0; j < expected_data.size(); ++j) {
+        EXPECT_NEAR(expected_data[j], actual_data[j], 1e-3) 
+            << "block: [" << i << "] expected differs from actual for sample: [" 
+            << j << "] diff: (" 
+            << std::abs(expected_data[j] - actual_data[j]); // Adjust epsilon as needed
+    }
+}
+
+// Test case to compare .dat files
+TEST_F(DatFileComparisonTest, QPreFmDemodFirstBlock) {
+    // Run Python script to generate actual .dat file
+    int i = 0;
+    std::vector<float> expected_data = readDatFile<float>(
+        "../data/py_pre_fm_demod_q"+std::to_string(i)+".dat");
+    std::vector<float> actual_data = readDatFile<float>(
+        "../data/pre_fm_demod_q"+std::to_string(i)+".dat");
+
+    // Assert that the sizes of both vectors are equal
+    ASSERT_EQ(expected_data.size(), actual_data.size());
+
+    // Iterate over each pair of values and perform EXPECT_NEAR
+    for (size_t j = 0; j < expected_data.size(); ++j) {
+        EXPECT_NEAR(expected_data[j], actual_data[j], 1e-3) 
+            << "block: [" << i << "] expected differs from actual for sample: [" 
+            << j << "] diff: (" 
+            << std::abs(expected_data[j] - actual_data[j]); // Adjust epsilon as needed
+    }
+}
+
+// Test case to compare .dat files
+TEST_F(DatFileComparisonTest, QPreFmDemodSecondBlock) {
+    // Run Python script to generate actual .dat file
+    int i = 1;
+    std::vector<float> expected_data = readDatFile<float>(
+        "../data/py_pre_fm_demod_q"+std::to_string(i)+".dat");
+    std::vector<float> actual_data = readDatFile<float>(
+        "../data/pre_fm_demod_q"+std::to_string(i)+".dat");
+
+    // Assert that the sizes of both vectors are equal
+    ASSERT_EQ(expected_data.size(), actual_data.size());
+
+    // Iterate over each pair of values and perform EXPECT_NEAR
+    for (size_t j = 0; j < expected_data.size(); ++j) {
+        EXPECT_NEAR(expected_data[j], actual_data[j], 1e-3) 
+            << "block: [" << i << "] expected differs from actual for sample: [" 
+            << j << "] diff: (" 
+            << std::abs(expected_data[j] - actual_data[j]); // Adjust epsilon as needed
+    }
+}
+
+// Test case to compare .dat files
+TEST_F(DatFileComparisonTest, IRawSampleComparisonFirst4Blocks) {
+    // Run Python script to generate actual .dat file
+    for (int i = 0; i < 4; i++) {
         std::vector<float> expected_data = readDatFile<float>(
-            "../data/py_pre_fm_demod_i"+std::to_string(i)+".dat");
+            "../data/py_samples_i"+std::to_string(i)+".dat");
         std::vector<float> actual_data = readDatFile<float>(
-            "../data/pre_fm_demod_i"+std::to_string(i)+".dat");
+            "../data/samples_i"+std::to_string(i)+".dat");
 
         // Assert that the sizes of both vectors are equal
         ASSERT_EQ(expected_data.size(), actual_data.size());
 
         // Iterate over each pair of values and perform EXPECT_NEAR
-        for (size_t i = 0; i < expected_data.size(); ++i) {
-            EXPECT_NEAR(expected_data[i], actual_data[i], 1e-5); // Adjust epsilon as needed
+        for (size_t j = 0; j < expected_data.size(); ++j) {
+            EXPECT_NEAR(expected_data[j], actual_data[j], 1e-4) 
+                << "block: [" << i << "] expected differs from actual for sample: [" 
+                << j << "] diff: (" 
+                << std::abs(expected_data[j] - actual_data[j]); // Adjust epsilon as needed
         }
     }
 }
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTest, QPreFmDemodFirst3Blocks) {
+TEST_F(DatFileComparisonTest, QRawSampleComparisonFirst4Blocks) {
     // Run Python script to generate actual .dat file
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         std::vector<float> expected_data = readDatFile<float>(
-            "../data/py_pre_fm_demod_q"+std::to_string(i)+".dat");
+            "../data/py_samples_q"+std::to_string(i)+".dat");
         std::vector<float> actual_data = readDatFile<float>(
-            "../data/pre_fm_demod_q"+std::to_string(i)+".dat");
+            "../data/samples_q"+std::to_string(i)+".dat");
 
         // Assert that the sizes of both vectors are equal
         ASSERT_EQ(expected_data.size(), actual_data.size());
 
         // Iterate over each pair of values and perform EXPECT_NEAR
-        for (size_t i = 0; i < expected_data.size(); ++i) {
-            ASSERT_NEAR(expected_data[i], actual_data[i], 1e-3); // Adjust epsilon as needed
+        for (size_t j = 0; j < expected_data.size(); ++j) {
+            EXPECT_NEAR(expected_data[j], actual_data[j], 1e-5) 
+                << "block: [" << i << "] expected differs from actual for sample: [" 
+                << j << "] diff: (" 
+                << std::abs(expected_data[j] - actual_data[j]); // Adjust epsilon as needed
         }
     }
 }

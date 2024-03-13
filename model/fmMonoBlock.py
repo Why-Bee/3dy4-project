@@ -94,6 +94,11 @@ if __name__ == "__main__":
 		# you can control the above loop exit condition as you see fit
 		print('Processing block ' + str(block_count))
 
+		if block_count in [0, 1, 2, 3]: logVector(f"py_samples_i{block_count}", 
+			iq_data[(block_count)*block_size:(block_count+1)*block_size:2])
+		if block_count in [0, 1, 2, 3]: logVector(f"py_samples_q{block_count}",
+			iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2])
+
 		# filter to extract the FM channel (I samples are even, Q samples are odd)
 		i_filt, state_i_lpf_100k = signal.lfilter(rf_coeff, 1.0, \
 				iq_data[(block_count)*block_size:(block_count+1)*block_size:2],
@@ -102,7 +107,6 @@ if __name__ == "__main__":
 		q_filt, state_q_lpf_100k = signal.lfilter(rf_coeff, 1.0, \
 				iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
 				zi=state_q_lpf_100k)
-		
 
 		# downsample the I/Q data from the FM channel
 		i_ds = i_filt[::rf_decim]
