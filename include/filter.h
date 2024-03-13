@@ -18,6 +18,7 @@ Ontario, Canada
 
 // declaration of a function prototypes
 void impulseResponseLPF(float, float, unsigned short int, std::vector<float> &);
+void impulseResponseBPF(float Fs, float Fb, float Fe, unsigned short int num_taps, std::vector<float> &h);
 void convolveFIR(std::vector<float> &, const std::vector<float> &, const std::vector<float> &);
 void convolveFIRdecimIQ(std::vector<float> &i_out, 
 					  std::vector<float> &q_out, 

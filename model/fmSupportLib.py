@@ -9,6 +9,7 @@
 from __future__ import annotations
 import numpy as np
 import math, cmath
+from scipy import signal
 from typing import Any, Tuple
 #
 # you should use the demodulator based on arctan given below as a reference
@@ -264,10 +265,13 @@ def lpCoeff(Fs, Fc, ntaps):
 
 	return taps
 
-if __name__ == "__main__":
 
-	# do nothing when this module is launched on its own
-	pass
+# to test against c++ version for gtest, provide 22kHz to 54kHz @240 KSamples/sec
+def bpFirwin(Fs, Fb, Fe, num_taps):
+	firwin_coeff = signal.firwin(num_taps, [Fb/(Fs/2), Fe/(Fs/2)], window=('hann'), pass_zero="bandpass")
+
+	return firwin_coeff
+
 
 
 def logVector(filename: str, data):
@@ -280,3 +284,12 @@ def logVector(filename: str, data):
 	# Save the structured array to a .dat file
 	np.savetxt(f'../data/{filename}.dat', structured_data, fmt='%d\t%.8e', delimiter='\t', header='x_axis\ty_axis', comments='')
 
+if __name__ == "__main__":
+	Fs = 240e3
+	Fb = 22e3
+	Fe = 54e3
+	num_taps = 101
+
+	bp_coeffs = bpFirwin(Fs, Fb, Fe, num_taps)
+
+	logVector("py_firwin_bp", bp_coeffs)
