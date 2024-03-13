@@ -100,18 +100,23 @@ void convolveFIRdecim(std::vector<float> &y,
         }
     }
 
-	std::vector<float> indices(zi.size());
-	for (int i = 0; i < zi.size(); i++) {
-		int idx = (x.size()-1) + decimation*(-(zi.size()-1) + i);
-		indices[i] = static_cast<float>(idx);
-		zi[i] = x[idx];
-	}
+	// std::vector<float> indices(zi.size());
+	// for (int i = 0; i < zi.size(); i++) {
+	// 	int idx = (x.size()-1) + decimation*(-(zi.size()-1) + i);
+	// 	indices[i] = static_cast<float>(idx);
+	// 	zi[i] = x[idx];
+	// }
 
-	if (logIdx) {
-		std::vector<float> idxVect;
-		genIndexVector(idxVect, indices.size());
-		logVector("indices_state_saving", idxVect, indices);
-		logIdx = false;
+	// if (logIdx) {
+	// 	std::vector<float> idxVect;
+	// 	genIndexVector(idxVect, indices.size());
+	// 	logVector("indices_state_saving", idxVect, indices);
+	// 	logIdx = false;
+	// }
+
+	/* Other version */
+	for (unsigned int i = 0; i < zi.size(); ++i)	{
+		zi[i] = x[x.size() - zi.size() + i];
 	}
 }
 
