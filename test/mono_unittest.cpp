@@ -113,3 +113,31 @@ TEST_F(DatFileComparisonTest, BandpassCoeffsSameAsModel) {
         EXPECT_NEAR(expected_data[i], actual_data[i], 1e-3); // Adjust epsilon as needed
     }
 }
+
+// Test case to verify the plain downsampling/upsampling functions
+TEST_F(DatFileComparisonTest, VerifyUpsamplerDownsampler) {
+    std::vector<float> data = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0};
+    std::vector<float> sampled_data(data.size());
+    int factor = 5;
+
+    for (int i = 0; i < sampled_data.size(); i++) {
+        sampled_data.push_back(data[i]);
+    }
+
+    upsample(sampled_data, factor);
+    downsample(sampled_data, factor);
+
+    ASSERT_EQ(data.size(), sampled_data.size());
+
+    for(size_t i = 0; i < data.size(); i++) {
+        ASSERT_EQ(data[i], sampled_data[i]);
+    }
+
+}
+
+// Test case to compare fast and slow resamplers
+TEST_F(DatFileComparisonTest, FastResamplerSameAsSlow) {
+    std::vector<float> expected_data, actual_data;
+    
+    
+}

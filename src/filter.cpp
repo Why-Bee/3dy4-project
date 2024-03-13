@@ -99,6 +99,37 @@ void convolveFIRdecim(std::vector<float> &y,
     }
 }
 
+void upsample(std::vector<float> &y,
+			  int upsampling_factor) 
+{
+	if (upsampling_factor == 1) {
+		return;
+	}
+
+	int original_size = y.size();
+	y.resize(original_size * upsampling_factor);
+
+	for (int i = original_size - 1; i >= 0; i--) {
+		y[i * upsampling_factor] = y[i];
+		for (int j = 1; j < upsampling_factor; j++) {
+			y[i * upsampling_factor + j] = 0.00;
+		}
+	}
+}
+
+void downsample(std::vector<float> &y,
+			  	int decimation)
+{
+	if (decimation == 1) {
+		return;
+	}
+	
+	for (int i = 0; i < y.size(); i++) {
+		y[i] = y[i * decimation];
+	}
+	y.resize(y.size() / decimation);
+}
+
 void convolveFIRResample(std::vector<float> &y, 
 					  const std::vector<float> &x, 
 					  const std::vector<float> &h, 
