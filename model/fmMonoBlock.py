@@ -30,7 +30,7 @@ audio_taps = 101
 
 # flag that keeps track if your code is running for
 # in-lab (il_vs_th = 0) vs takehome (il_vs_th = 1)
-il_vs_th = 1
+il_vs_th = 0
 
 if __name__ == "__main__":
 
@@ -126,6 +126,12 @@ if __name__ == "__main__":
 			# you MUST have also "custom" state-saving for your own FM demodulator
 			fm_demod, state_i_custom, state_q_custom = custom_fm_demod(i_ds, q_ds, state_i_custom, state_q_custom)
 
+		upsample = 10
+		fm_demod_resample = []
+		for num in fm_demod:
+			fm_demod_resample.append(num)
+			fm_demod_resample.extend([0] * (upsample))
+
 		# extract the mono audio data through filtering
 		if il_vs_th == 0:
 			# to be updated by you during the in-lab session based on lfilter
@@ -137,9 +143,12 @@ if __name__ == "__main__":
 			# with your own code for BLOCK convolution
 			audio_filt, audio_state = own_lfilter(audio_coeff, fm_demod, zi=audio_state)
 
+		audio_filt_resample, audio_state_resample = signal.lfilter(audio_coeff, 1.0, fm_demod_resample, zi=audio_state)
 		# downsample audio data
 		# to be updated by you during in-lab (same code for takehome)
 		audio_block = audio_filt[::audio_decim]
+		audio_block_resample = audio_filt_resample[::audio_decim]
+		if block_count in [0, 1, 2]: logVector(f"py_resampled_audio{block_count}", audio_block_resample)
 
 		# concatenate the most recently processed audio_block
 		# to the previous blocks stored already in audio_data

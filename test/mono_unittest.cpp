@@ -211,7 +211,7 @@ TEST_F(DatFileComparisonTest, VerifyUpsamplerDownsampler) {
     int factor = 5;
 
     for (int i = 0; i < sampled_data.size(); i++) {
-        sampled_data.push_back(data[i]);
+        sampled_data[i] = data[i];
     }
 
     upsample(sampled_data, factor);
@@ -222,12 +222,26 @@ TEST_F(DatFileComparisonTest, VerifyUpsamplerDownsampler) {
     for(size_t i = 0; i < data.size(); i++) {
         ASSERT_EQ(data[i], sampled_data[i]);
     }
-
 }
 
 // Test case to compare fast and slow resamplers
 TEST_F(DatFileComparisonTest, FastResamplerSameAsSlow) {
-    std::vector<float> expected_data, actual_data;
-    
-    
+    // Run Python script to generate actual .dat file
+    for (int i = 0; i < 3; i++) {
+        std::vector<float> expected_data = readDatFile<float>(
+            "../data/py_resampled_audio"+std::to_string(i)+".dat");
+        std::vector<float> actual_data = readDatFile<float>(
+            "../data/resample_audio"+std::to_string(i)+".dat");
+
+        // Assert that the sizes of both vectors are equal
+        ASSERT_EQ(expected_data.size(), actual_data.size());
+
+        // Iterate over each pair of values and perform EXPECT_NEAR
+        for (size_t j = 0; j < expected_data.size(); ++j) {
+            EXPECT_NEAR(expected_data[j], actual_data[j], 1e-5) 
+                << "block: [" << i << "] expected differs from actual for sample: [" 
+                << j << "] diff: (" 
+                << std::abs(expected_data[j] - actual_data[j]); // Adjust epsilon as needed
+        }
+    }
 }
