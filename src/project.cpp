@@ -159,28 +159,8 @@ int main(int argc, char* argv[])
 					  demod_state_q, 
 					  demodulated_samples);
 
-<<<<<<< HEAD
-		std::vector<float> float_audio_data_resample;
-		std::vector<float> mono_state_resample(kMonoNumTaps-1, 0.0);
-
-		convolveFIRResample(float_audio_data_resample,
-							demodulated_samples,
-							mono_coeffs,
-							mono_state_resample,
-							kMonoDecimation,
-							10);
-
-		if (block_id < 3) {
-			genIndexVector(idx_vect, float_audio_data_resample.size());
-			logVector("resampled_audio" + std::to_string(block_id),	idx_vect, float_audio_data_resample);
-		}					
-
-		convolveFIRdecim(float_audio_data, 
-						 demodulated_samples, 
-=======
 		convolveFIR2(float_audio_data, 
 						 demodulated_samples,
->>>>>>> origin/main
 						 mono_coeffs, 
 						 mono_state,
 						 kMonoDecimation);

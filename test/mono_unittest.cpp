@@ -225,7 +225,6 @@ TEST_F(DatFileComparisonTest, DISABLED_VerifyUpsamplerDownsampler) {
 }
 
 // Test case to compare fast and slow resamplers
-<<<<<<< HEAD
 TEST_F(DatFileComparisonTest, FastResamplerSameAsSlow) {
     // Run Python script to generate actual .dat file
     for (int i = 0; i < 3; i++) {
@@ -245,10 +244,4 @@ TEST_F(DatFileComparisonTest, FastResamplerSameAsSlow) {
                 << std::abs(expected_data[j] - actual_data[j]); // Adjust epsilon as needed
         }
     }
-=======
-TEST_F(DatFileComparisonTest, DISABLED_FastResamplerSameAsSlow) {
-    std::vector<float> expected_data, actual_data;
-    
-    
->>>>>>> origin/main
 }
