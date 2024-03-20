@@ -43,4 +43,5 @@ void convolveFIRResample(std::vector<float> &y,
 					  std::vector<float> &zi, 
 					  int decimation,
 					  int upsampling_factor);
+void convolveFIR2(std::vector<float> &y, std::vector<float> &x, std::vector<float> &h, std::vector<float> &zi, int decimation);
 #endif // DY4_FILTER_H

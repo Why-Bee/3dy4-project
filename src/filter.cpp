@@ -49,6 +49,31 @@ void impulseResponseBPF(float Fs, float Fb, float Fe, unsigned short int num_tap
 	}
 }
 
+
+void convolveFIR2(std::vector<float> &y, std::vector<float> &x, std::vector<float> &h, std::vector<float> &zi, int decimation)
+{
+
+		y.clear(); y.resize(x.size()/decimation, 0.0);
+    int decim_n;
+    for (int n = 0; n < x.size(); n += decimation) {
+        decim_n = n/decimation;
+        for (int k = 0; k < h.size(); k++){
+            if (n - k >= 0) {
+                y[decim_n] += x[n - k] * h[k];
+            } else {
+                y[decim_n] += zi[zi.size() + (n - k)] * h[k];
+            }
+        }
+    }
+
+    for (int i = x.size() - h.size(); i < x.size(); i++){
+
+      zi[i - x.size() + h.size()] = x[i];
+
+    }
+
+}
+
 // function to compute the filtered output "y" by doing the convolution
 // of the input data "x" with the impulse response "h"
 void convolveFIR(std::vector<float> &y, const std::vector<float> &x, const std::vector<float> &h, std::vector<float> &zi)
@@ -78,16 +103,13 @@ void convolveFIRdecim(std::vector<float> &y,
 					  std::vector<float> &zi, 
 					  int decimation)
 {
-	static bool logIdx = true;
 	// This function convolves x and h to get y, managing state, and downsamples by decimation
 	// TODO consider empty initial zi
 	// allocate memory for the output (filtered) data
 	y.clear(); y.resize(x.size()/decimation, 0.0);
-	
-	if ((zi.size()!=h.size()-1)) 
-		std::cerr << "ERROR: zi not equal to  h.size-1" << std::endl;
 
 	int decim_n;
+	std::vector<float> indices;
     for (int n = 0; n < x.size(); n += decimation) {
         decim_n = n/decimation;
         for (int k = 0; k < h.size(); k++){
@@ -100,18 +122,8 @@ void convolveFIRdecim(std::vector<float> &y,
         }
     }
 
-	std::vector<float> indices(zi.size());
 	for (int i = 0; i < zi.size(); i++) {
-		int idx = (x.size()-1) + decimation*(-(zi.size()-1) + i);
-		indices[i] = static_cast<float>(idx);
-		zi[i] = x[idx];
-	}
-
-	if (logIdx) {
-		std::vector<float> idxVect;
-		genIndexVector(idxVect, indices.size());
-		logVector("indices_state_saving", idxVect, indices);
-		logIdx = false;
+		zi[i] = (x.size()-1) + decimation*(-(zi.size()-1) + i);;
 	}
 }
 

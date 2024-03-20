@@ -22,4 +22,7 @@ void logVector(const std::string, \
 	const std::vector<float> &, \
 	const std::vector<float> &);
 
+void logVector(const std::string filename, \
+	const std::vector<float> &y);
+
 #endif // DY4_LOGFUNC_H
