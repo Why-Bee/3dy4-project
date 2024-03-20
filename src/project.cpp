@@ -28,18 +28,6 @@ Ontario, Canada
 // Step 5: Low-pass filter the demodulated data with cutoff of 16 kHz
 // Step 6: Downsample to 48 ksamples/s
 // Step 7: Output this audio data to file
-enum class AudioChan {
-	Mono,
-	Stereo,
-	Rbds,
-};
-
-enum class Mode {
-	Mode0,
-	Mode1,
-	Mode2,
-	Mode3,
-};
 
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
@@ -51,6 +39,9 @@ constexpr float kMonoCutoffFrequency = 16e3;
 constexpr unsigned short int kMonoNumTaps = 101; // NOTE script works when I use 151*2 here
 constexpr int kMonoDecimation = 5;
 
+constexpr uint16_t kMaxUint14 = 0x3FFF;
+
+#define DEBUG_MODE 0U
 
 int main(int argc, char* argv[])
 {
@@ -64,7 +55,7 @@ int main(int argc, char* argv[])
 	float demod_state_i = 0.0;
 	float demod_state_q = 0.0;	
 
-	std::vector<float> raw_bin_data;
+	std::vector<float> raw_bin_data(block_size);
 	std::vector<float> raw_bin_data_i;
 	std::vector<float> raw_bin_data_q;
 
@@ -77,7 +68,7 @@ int main(int argc, char* argv[])
 	std::vector<float> demodulated_samples;
 
 	std::vector<float> float_audio_data;
-	std::vector<int16_t> s16_audio_data;
+	std::vector<short int> s16_audio_data;
 
 	/* Parse command line arguments */
 	int mode = 0;
@@ -116,107 +107,51 @@ int main(int argc, char* argv[])
 					   kRfNumTaps,
 					   rf_coeffs);
 
-	std::vector<float> idx_vect;
-	genIndexVector(idx_vect, rf_coeffs.size());
-	logVector("impulse_resp_rf", idx_vect, rf_coeffs);
+	logVector("impulse_resp_rf", rf_coeffs);
 
 	impulseResponseLPF(kMonoSampleFrequency, 
 					   kMonoCutoffFrequency, 
 					   kMonoNumTaps,
 					   mono_coeffs);
 
-	genIndexVector(idx_vect, mono_coeffs.size());
-	logVector("impulse_resp_mono", idx_vect, mono_coeffs);
+	logVector("impulse_resp_mono", mono_coeffs);
+
+	raw_bin_data_i.clear(); raw_bin_data_i.resize(block_size/2);
+	raw_bin_data_q.clear(); raw_bin_data_q.resize(block_size/2);
 
 	std::cerr << "block size: " << block_size << std::endl;
 	for (unsigned int block_id = 0; ;block_id++) {
-		raw_bin_data.clear(); raw_bin_data.resize(block_size);
 		readStdinBlockData(block_size, block_id, raw_bin_data);
 
 		if ((std::cin.rdstate()) != 0){
 			std::cerr << "End of input stream reached" << std::endl;
 			exit(1);
 		}
+
 		std::cerr << "Read block " << block_id << std::endl;
 
 		// DO NOT RESIZE THESE
-		raw_bin_data_i.clear(); 
-		raw_bin_data_q.clear(); 
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
-			raw_bin_data_i.push_back(raw_bin_data[i]);
-			raw_bin_data_q.push_back(raw_bin_data[i+1]);
+			raw_bin_data_i[i/2] = raw_bin_data[i];
+			raw_bin_data_q[i/2] = raw_bin_data[i+1];
 		}
 
-		if (block_id < 4) {
-			genIndexVector(idx_vect, raw_bin_data_i.size());
-			logVector("samples_i" + std::to_string(block_id),
-				idx_vect, 
-				raw_bin_data_i);	
-		}
-		if (block_id < 4) {
-			genIndexVector(idx_vect, raw_bin_data_q.size());
-			logVector("samples_q" + std::to_string(block_id),
-				idx_vect, 
-				raw_bin_data_q);
-		}
+		#if (DEBUG_MODE == 1)
+		if (block_id < 3) logVector("samples_i" + std::to_string(block_id), raw_bin_data_i);	
+		if (block_id < 3) logVector("samples_q" + std::to_string(block_id), raw_bin_data_q);
+		#endif
 
-		//std::cerr << "split i and q" << std::endl;
-		#define DEBUG_CONVOLVE_DECIM 0
-		#if DEBUG_CONVOLVE_DECIM
-		std::cerr << "DEBUG_CONVOLVE_DECIM" << std::endl;
-		convolveFIR(pre_fm_demod_i, 
-						 raw_bin_data_i,
-						 rf_coeffs, 
-						 rf_state_i);
-
-		std::vector<float> temp;
-		for (int i = 0; i < pre_fm_demod_i.size(); i+=kRfDecimation) {
-			temp.push_back(pre_fm_demod_i[i]);
-		}
-		if (block_id < 3) {
-			genIndexVector(idx_vect, temp.size());
-			logVector("pre_fm_demod_i" + std::to_string(block_id),
-				idx_vect, 
-				temp);
-		}
-		#else
-		convolveFIRdecim(pre_fm_demod_i, 
+		convolveFIR2(pre_fm_demod_i, 
 						 raw_bin_data_i,
 						 rf_coeffs, 
 						 rf_state_i,
 						 kRfDecimation);
-		if (block_id < 3) {
-			genIndexVector(idx_vect, pre_fm_demod_i.size());
-			logVector("pre_fm_demod_i" + std::to_string(block_id),
-				idx_vect, 
-				pre_fm_demod_i);
-		}
-		#endif
 
-		//std::cerr << "Convolved i" << std::endl;
-		
-		convolveFIRdecim(pre_fm_demod_q, 
+		convolveFIR2(pre_fm_demod_q, 
 						 raw_bin_data_q,
 						 rf_coeffs, 
 						 rf_state_q,
 						 kRfDecimation);
-		if (block_id < 3) {
-			genIndexVector(idx_vect, pre_fm_demod_q.size());
-			logVector("pre_fm_demod_q" + std::to_string(block_id),
-				idx_vect, 
-				pre_fm_demod_q);
-		}
-
-		//std::cerr << "Convolved q" << std::endl;
-
-
-		// convolveFIRdecimIQ(pre_fm_demod_i, 
-		// 				   pre_fm_demod_q, 
-		// 				   raw_bin_data, 
-		// 				   rf_coeffs, 
-		// 				   rf_state_i,
-		// 				   rf_state_q, 
-		// 				   kRfDecimation);
 
 		fmDemodulator(pre_fm_demod_i, 
 					  pre_fm_demod_q, 
@@ -224,29 +159,18 @@ int main(int argc, char* argv[])
 					  demod_state_q, 
 					  demodulated_samples);
 
-		convolveFIRdecim(float_audio_data, 
-						 demodulated_samples, 
+		convolveFIR2(float_audio_data, 
+						 demodulated_samples,
 						 mono_coeffs, 
 						 mono_state,
 						 kMonoDecimation);
-		
-		//std::cerr << "mono audio convolved" << std::endl;
-		
-		s16_audio_data.clear() ; s16_audio_data.resize(block_size);
-		for (unsigned int k=0; k<float_audio_data.size(); k++) {
-			if (std::isnan(float_audio_data[k])) s16_audio_data[k] = 0;
-			// NOTE try multiplication by 16384 on dongle
-			else s16_audio_data[k] = static_cast<int16_t>(float_audio_data[k]*(std::numeric_limits<int16_t>::max()+1));
+
+		s16_audio_data.clear();
+		for (unsigned int k = 0; k < float_audio_data.size(); k++){
+				if (std::isnan(float_audio_data[k])) s16_audio_data.push_back(0);
+				else s16_audio_data.push_back(static_cast<short int>(float_audio_data[k]*(kMaxUint14+1)));
 		}
-
-		fwrite(&s16_audio_data[0], sizeof(int16_t), s16_audio_data.size(), stdout);
-
-		// s16_audio_data.clear();
-		// for (unsigned int k = 0; k < float_audio_data.size(); k++){
-		// 		if (std::isnan(float_audio_data[k])) s16_audio_data.push_back(0);
-		// 		else s16_audio_data.push_back(static_cast<short int>(float_audio_data[k]*16384));
-		// }
-		// fwrite(&s16_audio_data[0], sizeof(int16_t), s16_audio_data.size(), stdout);
+		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
 	}
 
     // processing_thread.join();

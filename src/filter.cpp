@@ -49,6 +49,31 @@ void impulseResponseBPF(float Fs, float Fb, float Fe, unsigned short int num_tap
 	}
 }
 
+
+void convolveFIR2(std::vector<float> &y, std::vector<float> &x, std::vector<float> &h, std::vector<float> &zi, int decimation)
+{
+
+		y.clear(); y.resize(x.size()/decimation, 0.0);
+    int decim_n;
+    for (int n = 0; n < x.size(); n += decimation) {
+        decim_n = n/decimation;
+        for (int k = 0; k < h.size(); k++){
+            if (n - k >= 0) {
+                y[decim_n] += x[n - k] * h[k];
+            } else {
+                y[decim_n] += zi[zi.size() + (n - k)] * h[k];
+            }
+        }
+    }
+
+    for (int i = x.size() - h.size(); i < x.size(); i++){
+
+      zi[i - x.size() + h.size()] = x[i];
+
+    }
+
+}
+
 // function to compute the filtered output "y" by doing the convolution
 // of the input data "x" with the impulse response "h"
 void convolveFIR(std::vector<float> &y, const std::vector<float> &x, const std::vector<float> &h, std::vector<float> &zi)
