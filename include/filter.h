@@ -43,5 +43,12 @@ void convolveFIRResample(std::vector<float> &y,
 					  std::vector<float> &zi, 
 					  int decimation,
 					  int upsampling_factor);
-void convolveFIR2(std::vector<float> &y, std::vector<float> &x, std::vector<float> &h, std::vector<float> &zi, int decimation);
+void convolveFIR2(std::vector<float> &y, 
+				  std::vector<float> &x, 
+				  std::vector<float> &h, 
+				  std::vector<float> &zi, 
+				  int decimation);
+void delayBlock(const std::vector<float>& x, 
+				std::vector<float>& y, 
+				std::vector<float>& state);
 #endif // DY4_FILTER_H
