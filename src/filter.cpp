@@ -78,16 +78,13 @@ void convolveFIRdecim(std::vector<float> &y,
 					  std::vector<float> &zi, 
 					  int decimation)
 {
-	static bool logIdx = true;
 	// This function convolves x and h to get y, managing state, and downsamples by decimation
 	// TODO consider empty initial zi
 	// allocate memory for the output (filtered) data
 	y.clear(); y.resize(x.size()/decimation, 0.0);
-	
-	if ((zi.size()!=h.size()-1)) 
-		std::cerr << "ERROR: zi not equal to  h.size-1" << std::endl;
 
 	int decim_n;
+	std::vector<float> indices;
     for (int n = 0; n < x.size(); n += decimation) {
         decim_n = n/decimation;
         for (int k = 0; k < h.size(); k++){
@@ -100,23 +97,8 @@ void convolveFIRdecim(std::vector<float> &y,
         }
     }
 
-	// std::vector<float> indices(zi.size());
-	// for (int i = 0; i < zi.size(); i++) {
-	// 	int idx = (x.size()-1) + decimation*(-(zi.size()-1) + i);
-	// 	indices[i] = static_cast<float>(idx);
-	// 	zi[i] = x[idx];
-	// }
-
-	// if (logIdx) {
-	// 	std::vector<float> idxVect;
-	// 	genIndexVector(idxVect, indices.size());
-	// 	logVector("indices_state_saving", idxVect, indices);
-	// 	logIdx = false;
-	// }
-
-	/* Other version */
-	for (unsigned int i = 0; i < zi.size(); ++i)	{
-		zi[i] = x[x.size() - zi.size() + i];
+	for (int i = 0; i < zi.size(); i++) {
+		zi[i] = (x.size()-1) + decimation*(-(zi.size()-1) + i);;
 	}
 }
 
