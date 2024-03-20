@@ -41,13 +41,14 @@ constexpr int kMonoDecimation = 5;
 
 constexpr uint16_t kMaxUint14 = 0x3FFF;
 
-#define DEBUG_MODE 0U
+#define DEBUG_MODE 1U
 
 int main(int argc, char* argv[])
 {
 	// AudioChan audio_chan = AudioChan::Mono;
 	// Mode mode = Mode::Mode0;
-	static constexpr size_t block_size = 2 * 1024 * kRfDecimation * kMonoDecimation;
+	// static constexpr size_t block_size = 2 * 1024 * kRfDecimation * kMonoDecimation;
+	static constexpr size_t block_size = (2 * 1024 * kRfDecimation * 800) / 147;
 
 	std::vector<float> rf_state_i(kRfNumTaps-1, 0.0);
 	std::vector<float> rf_state_q(kRfNumTaps-1, 0.0);
@@ -159,11 +160,35 @@ int main(int argc, char* argv[])
 					  demod_state_q, 
 					  demodulated_samples);
 
+		#if (DEBUG_MODE == 1) 
+		// convolveFIRResample(float_audio_data,
+		// 					demodulated_samples,
+		// 					mono_coeffs,
+		// 					mono_state,
+		// 					800,
+		// 					147);
+
+		// if (block_id < 3) logVector("resampled_audio" + std::to_string(block_id), float_audio_data);	
+
+		upsample(demodulated_samples, 147);
+		std::cerr << "here" << std::endl;
+		convolveFIR(float_audio_data, demodulated_samples, mono_coeffs, mono_state);
+		std::cerr << "here1" << std::endl;
+		downsample(float_audio_data, 800);
+		std::cerr << "here1" << std::endl;
+
+
+		#else
+
+		std::cerr << demodulated_samples.size() << std::endl;
+
 		convolveFIR2(float_audio_data, 
 						 demodulated_samples,
 						 mono_coeffs, 
 						 mono_state,
 						 kMonoDecimation);
+
+		#endif				 
 
 		s16_audio_data.clear();
 		for (unsigned int k = 0; k < float_audio_data.size(); k++){

@@ -152,10 +152,14 @@ void downsample(std::vector<float> &y,
 		return;
 	}
 	
-	for (int i = 0; i < y.size(); i++) {
-		y[i] = y[i * decimation];
+	int index = 0;
+
+	for (int i = 0; i < y.size(); i+=decimation) {
+		y[index] = y[i];
+		index++;
 	}
 	y.resize(y.size() / decimation);
+		std::cerr << y.size() << std::endl;
 }
 
 void convolveFIRResample(std::vector<float> &y, 
@@ -181,7 +185,7 @@ void convolveFIRResample(std::vector<float> &y,
         }
     }
     for (int i = x.size() - zi.size(); i < x.size(); i++){
-      zi[i - x.size() + h.size()] = x[i];
+      zi[i - x.size() + zi.size()] = x[i];
     }
 }
 
