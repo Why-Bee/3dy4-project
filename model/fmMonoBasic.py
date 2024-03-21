@@ -68,7 +68,7 @@ from scipy import signal
 import math
 
 # use fmDemodArctan and fmPlotPSD
-from fmSupportLib import fmDemodArctan, fmPlotPSD, lpCoeff, own_lfilter
+from fmSupportLib import fmDemodArctan, fmPlotPSD, lpCoeff, own_lfilter, bpFirwin, fmPll
 # for take-home add your functions
 
 # the radio-frequency (RF) sampling rate
@@ -102,13 +102,13 @@ audio_taps = 101 # change as you see fit
 
 # flag that keeps track if your code is running for
 # in-lab (il_vs_th = 0) vs takehome (il_vs_th = 1)
-il_vs_th = 1
+il_vs_th = 0
 
 if __name__ == "__main__":
 
 	# read the raw IQ data from the recorded file
 	# IQ data is assumed to be in 8-bits unsigned (and interleaved)
-	in_fname = "../data/iq_samples/samples9.raw"
+	in_fname = "../data/stereo_l0_r9.raw"
 	# in_fname = "/usr/raw_data/iq_samples/samples1.raw"
 
 	raw_data = np.fromfile(in_fname, dtype='uint8')
@@ -162,6 +162,35 @@ if __name__ == "__main__":
 		# with your own code for single pass convolution
 		audio_filt = own_lfilter(filter_coeff=audio_coeff, sig=fm_demod)
 
+
+	# extract the stereo audio data through the filter
+	# stereo channel extractor:
+	stereo_coeff = bpFirwin((rf_Fs/rf_decim), 22e3, 54e3, 101)
+	stereo_data = signal.lfilter(stereo_coeff, 1.0, fm_demod)
+
+	# PLL and carrier recovery
+	pilot_coeff = bpFirwin((rf_Fs/rf_decim), 18.5e3, 20.5e3, 101)
+	pilot_data = signal.lfilter(pilot_coeff, 1.0, fm_demod)
+
+	ncoOut = fmPll(pilot_data, 19e3, rf_Fs/rf_decim, 2)
+
+	mixed_data = np.zeros(len(stereo_data))
+	# Stereo processing/demodulation
+	for i in range(len(stereo_data)):
+		mixed_data[i] = ((stereo_data[i] * ncoOut[i]))
+	
+	# cos(a)cos(b) = 1/2(cos(a-b) + cos(a+b)) we only need the cos(a-b) term
+	mixed_coeff = lpCoeff(Fs = (rf_Fs/rf_decim), Fc = 38e3, ntaps = 101)
+	mixed_data = signal.lfilter(mixed_coeff, 1.0, mixed_data)
+	mixed_data = 2 * mixed_data
+
+	# downsample this data
+	mixed_data = mixed_data[::audio_decim]
+
+	# delay the mono audio by 101/2 samples
+	padding = np.zeros(50)
+	audio_filt = np.concatenate((padding, audio_filt[:-50]))
+
 	# you should uncomment the plots below once you have processed the data
 
 	# PSD after extracting mono audio
@@ -169,6 +198,12 @@ if __name__ == "__main__":
 
 	# downsample audio data (see the principle for i_ds or q_ds)
 	audio_data = audio_filt[::audio_decim] # to be updated by you during in-lab (same code for takehome)
+
+	left_data = np.zeros(len(audio_data))
+	right_data = np.zeros(len(audio_data))
+	for i in range(len(audio_data)):
+		left_data[i] = (audio_data[i] + mixed_data[i])
+		right_data[i] = (audio_data[i] - mixed_data[i])
 
 	# PSD after decimating mono audio
 	fmPlotPSD(ax2, audio_data, audio_Fs/1e3, subfig_height[2], 'Downsampled Mono Audio')
@@ -180,6 +215,14 @@ if __name__ == "__main__":
 	# write audio data to file (assumes audio_data samples are -1 to +1)
 	out_fname = "../data/fmMonoBasic_1.wav"
 	wavfile.write(out_fname, int(audio_Fs), np.int16((audio_data/2)*32767))
+	stereo_out_fname_left = "../data/fmMonoBasic_stereo_left.wav"
+	stereo_out_fname_right = "../data/fmMonoBasic_stereo_right.wav"
+	stereo_out_fname = '../data/fmMonoBasic_stereo.wav'
+	wavfile.write(stereo_out_fname_left, int(audio_Fs), np.int16((left_data/2)*32767))
+	wavfile.write(stereo_out_fname_right, int(audio_Fs), np.int16((right_data/2)*32767))
+	c = np.column_stack((np.int16((left_data/2)*32767), np.int16((right_data/2)*32767)))
+	print(c)
+	wavfile.write(stereo_out_fname, int(audio_Fs), c)
 	# during FM transmission audio samples in the mono channel will contain
 	# the sum of the left and right audio channels; hence, we first
 	# divide by two the audio sample value and then we rescale to fit
