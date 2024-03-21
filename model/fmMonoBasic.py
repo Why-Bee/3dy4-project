@@ -172,7 +172,24 @@ if __name__ == "__main__":
 	pilot_coeff = bpFirwin((rf_Fs/rf_decim), 18.5e3, 20.5e3, 101)
 	pilot_data = signal.lfilter(pilot_coeff, 1.0, fm_demod)
 
-	ncoOut = fmPll(pilot_data, 19e3, rf_Fs/rf_decim, 2)
+	# INIITIAL PLL STATES
+	integrator = 0.0
+	phaseEst = 0.0
+	feedbackI = 1.0
+	feedbackQ = 0.0
+	trigOffset = 0
+	lastNco = 1.0
+
+	ncoOut, integrator, phaseEst, trigOffset, lastNco = fmPll(pilot_data, 
+															  19e3, 
+															  rf_Fs/rf_decim, 
+															  integrator, 
+															  phaseEst,
+															  feedbackI,
+															  feedbackQ,
+															  trigOffset, 
+															  lastNco, 
+															  ncoScale=2)
 
 	mixed_data = np.zeros(len(stereo_data))
 	# Stereo processing/demodulation
@@ -194,7 +211,7 @@ if __name__ == "__main__":
 	# you should uncomment the plots below once you have processed the data
 
 	# PSD after extracting mono audio
-	fmPlotPSD(ax1, audio_filt, (rf_Fs/rf_decim)/1e3, subfig_height[1], 'Extracted Mono')
+	# fmPlotPSD(ax1, audio_filt, (rf_Fs/rf_decim)/1e3, subfig_height[1], 'Extracted Mono')
 
 	# downsample audio data (see the principle for i_ds or q_ds)
 	audio_data = audio_filt[::audio_decim] # to be updated by you during in-lab (same code for takehome)
