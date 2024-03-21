@@ -50,7 +50,7 @@ void impulseResponseBPF(float Fs, float Fb, float Fe, unsigned short int num_tap
 }
 
 
-void convolveFIR2(std::vector<float> &y, std::vector<float> &x, std::vector<float> &h, std::vector<float> &zi, int decimation)
+void convolveFIR2(std::vector<float> &y, std::vector<float> &x, std::vector<float> &h, std::vector<float> &zi, int decimation, float gain)
 {
 
 		y.clear(); y.resize(x.size()/decimation, 0.0);
@@ -59,9 +59,9 @@ void convolveFIR2(std::vector<float> &y, std::vector<float> &x, std::vector<floa
         decim_n = n/decimation;
         for (int k = 0; k < h.size(); k++){
             if (n - k >= 0) {
-                y[decim_n] += x[n - k] * h[k];
+                y[decim_n] += gain*(x[n - k] * h[k]);
             } else {
-                y[decim_n] += zi[zi.size() + (n - k)] * h[k];
+                y[decim_n] += gain*(zi[zi.size() + (n - k)] * h[k]);
             }
         }
     }

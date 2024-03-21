@@ -47,7 +47,8 @@ void convolveFIR2(std::vector<float> &y,
 				  std::vector<float> &x, 
 				  std::vector<float> &h, 
 				  std::vector<float> &zi, 
-				  int decimation);
+				  int decimation,
+				  float gain = 1.0);
 void delayBlock(const std::vector<float>& x, 
 				std::vector<float>& y, 
 				std::vector<float>& state);
