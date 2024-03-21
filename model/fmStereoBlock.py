@@ -22,22 +22,22 @@ rf_Fc = 100e3
 rf_taps = 101
 rf_decim = 10
 
-stereo_bp_fc_low = 22e3
-stereo_bp_fc_high = 54e3
-stereo_bp_taps = 101
-
-stereo_bp_fc_low = 22e3
-stereo_bp_fc_high = 54e3
-stereo_bp_taps = 101
-
-pilot_bp_fc_low = 18.5e3 
-pilot_bp_fc_high = 20.5e3
-pilot_bp_taps = 101
-
 audio_Fs = 48e3
 mono_Fc = 16e3
 mono_decim = 5
 mono_taps = 101
+
+stereo_bp_fc_low = 22e3
+stereo_bp_fc_high = 54e3
+stereo_bp_taps = 101
+stereo_decim = mono_decim
+
+stereo_lp_fc = 38e3
+stereo_lp_taps = 101
+
+pilot_bp_fc_low = 18.5e3 
+pilot_bp_fc_high = 20.5e3
+pilot_bp_taps = 101
 
 # INIITIAL PLL STATES
 pll_state_integrator = 0.0
@@ -69,10 +69,14 @@ if __name__ == "__main__":
 
 	mono_coeff = signal.firwin(mono_taps, mono_Fc/((rf_Fs/rf_decim)/2), window=('hann'))
 
-	stereo_coeff = bpFirwin((rf_Fs/rf_decim), 
+	stereo_bpf_coeff = bpFirwin((rf_Fs/rf_decim), 
 						 	stereo_bp_fc_low, 
 							stereo_bp_fc_high, 
 							stereo_bp_taps)
+	
+
+	
+	stereo_lpf_coeff = lpCoeff((rf_Fs/rf_decim), stereo_lp_fc, stereo_lp_taps) #signal.firwin(stereo_lp_taps, stereo_lp_fc/((rf_Fs/rf_decim)/2), window=('hann'))
 	
 	pilot_coeff = bpFirwin((rf_Fs/rf_decim), 
 						 	pilot_bp_fc_low, 
@@ -83,6 +87,7 @@ if __name__ == "__main__":
 	state_i_lpf_100k = np.zeros(rf_taps-1)
 	state_q_lpf_100k = np.zeros(rf_taps-1)
 	state_stereo_bpf = np.zeros(stereo_bp_taps-1)
+	state_stereo_lpf = np.zeros(stereo_lp_taps-1)
 	state_pilot_bpf = np.zeros(pilot_bp_taps-1)
 	state_phase = 0
 	state_i_custom = np.float64(0.0)
@@ -100,11 +105,13 @@ if __name__ == "__main__":
 	block_count = 0
 
 	# audio buffer that stores all the audio blocks
-	mono_data = np.array([]) # used to concatenate filtered blocks (audio data)
+	stereo_left = np.array([]) # used to concatenate filtered blocks (audio data)
+	stereo_right = np.array([]) # used to concatenate filtered blocks (audio data)
+	stereo_left_right = np.array([]) # used to concatenate filtered blocks (audio data)
 
 	# state for the audio mono processing
 	mono_lpf_state = np.zeros(mono_taps-1)
-	mono_delay_state = np.zeros((state_stereo_bpf-1)/2)
+	mono_apf_state = np.zeros(int((stereo_lp_taps-1)/2))
 
 	# if the number of samples in the last block is less than the block size
 	# it is fine to ignore the last few samples from the raw IQ file
@@ -135,7 +142,7 @@ if __name__ == "__main__":
 
 		pilot_filt, state_pilot_bpf = signal.lfilter(pilot_coeff, 1.0, fm_demod, zi=state_pilot_bpf)
 
-		stereo_filt, state_stereo_bpf = signal.lfilter(stereo_coeff, 1.0, fm_demod, zi=state_stereo_bpf)
+		stereo_filt_lpf_bpf, state_stereo_bpf = signal.lfilter(stereo_bpf_coeff, 1.0, fm_demod, zi=state_stereo_bpf)
 
 		ncoOut, pll_state_integrator, pll_state_phaseEst, pll_state_trigOffset, pll_state_lastNco = fmPll(
 			pilot_filt, 
@@ -147,31 +154,49 @@ if __name__ == "__main__":
 			pll_state_feedbackQ,
 			pll_state_trigOffset, 
 			pll_state_lastNco, 
-			ncoScale=2)
-
-		# downsample audio data
-		# to be updated by you during in-lab (same code for takehome)
-		mono_block = mono_filt[::mono_decim]
-
-		mono_block_delay, mono_delay_state = delayBlock(mono_block, mono_delay_state)
-
-		# concatenate the most recently processed mono_block
-		# to the previous blocks stored already in mono_data
+			ncoScale=2,
+			normBandwidth=0.01)
 		
-		mono_data = np.concatenate((mono_data, mono_block))
-
-
+		# if block_count == 100: import pdb; pdb.set_trace()
 		
+		# analog mixer
+		stereo_mixed = ncoOut[:-1] * stereo_filt_lpf_bpf
+		
+		# if block_count == 10:
+		# 	plt.plot(ncoOut)
+		# 	fmPlotPSD(ax0, stereo_mixed, rf_Fs/rf_decim, subfig_height[0], "ncoOut")
+		# 	plt.show()
+
+		# low pass filter the stereo data
+		stereo_filt_lpf, state_stereo_lpf = signal.lfilter(stereo_lpf_coeff, 1.0, stereo_mixed, zi=state_stereo_lpf)
+
+		# downsample stereo data
+		stereo_block = 2*stereo_filt_lpf[::stereo_decim]
+
+		# downsample mono data
+		mono_filt_delayed, mono_apf_state = delayBlock(mono_filt, mono_apf_state)
+		mono_block = mono_filt_delayed[::mono_decim]
+		
+		stereo_left = np.concatenate((stereo_left, (mono_block + stereo_block)))
+		stereo_right = np.concatenate((stereo_right, (mono_block - stereo_block)))
+
+		# import pdb; pdb.set_trace()
 
 		block_count += 1
 	# loop end
 	print('Finished processing all the blocks from the recorded I/Q samples')
 
-	# write audio data to file
-	out_fname = "../data/fmMonoBlock.wav"
-	wavfile.write(out_fname, int(audio_Fs), np.int16((mono_data/2)*32767))
-	print("Written audio samples to \"" + out_fname + "\" in signed 16-bit format")
-
-	# uncomment assuming you wish to show some plots
-	plt.show()
-
+	# write audio data to file (assumes audio_data samples are -1 to +1)
+	stereo_out_fname_left = "../data/fmStereoBlock_left.wav"
+	stereo_out_fname_right = "../data/fmStereoBlock_right.wav"
+	stereo_out_fname = '../data/fmStereoBlock_stereo.wav'
+	wavfile.write(stereo_out_fname_left, int(audio_Fs), np.int16((stereo_left/2)*32767))
+	wavfile.write(stereo_out_fname_right, int(audio_Fs), np.int16((stereo_right/2)*32767))
+	c = np.column_stack((np.int16((stereo_left/2)*32767), np.int16((stereo_right/2)*32767)))
+	print(c)
+	wavfile.write(stereo_out_fname, int(audio_Fs), c)
+	# during FM transmission audio samples in the mono channel will contain
+	# the sum of the left and right audio channels; hence, we first
+	# divide by two the audio sample value and then we rescale to fit
+	# in the range offered by 16-bit signed int representation
+	# print("Written audio samples to \"" + out_fname + "\" in signed 16-bit format")

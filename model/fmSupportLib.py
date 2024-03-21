@@ -357,7 +357,6 @@ def fmPll(pllIn,
 	# trigOffset = 0
 	# lastNco = 1.0
 
-	# NOTE: I have no idea if lastNCO is the right thing to do here.
 	ncoOut[0] = lastNco 
 
 	for k in range(len(pllIn)):
@@ -391,7 +390,7 @@ def fmPll(pllIn,
 	# for block processing you should also return the state
 	# for RDS add also the quadrature NCO component to the output
 
-	return ncoOut, integrator, phaseEst, trigOffset, lastNco 
+	return ncoOut, integrator, phaseEst, trigOffset, ncoOut[-1] 
 
 def delayBlock(input_block, state_block):
 	output_block = np.concatenate((state_block, input_block[:-len(state_block)]))
