@@ -34,7 +34,7 @@ constexpr float kRfCutoffFrequency = 100e3;
 constexpr unsigned short int kRfNumTaps = 101; // NOTE script works only for 151 here but not smth to rely on
 constexpr int kRfDecimation = 10;
 
-constexpr float kMonoSampleFrequency = 240e3;
+constexpr float kMonoSampleFrequency = 147*240e3;	// UPDATE
 constexpr float kMonoCutoffFrequency = 16e3;
 constexpr unsigned short int kMonoNumTaps = 101; // NOTE script works when I use 151*2 here
 constexpr int kMonoDecimation = 5;
@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
 	// AudioChan audio_chan = AudioChan::Mono;
 	// Mode mode = Mode::Mode0;
 	// static constexpr size_t block_size = 2 * 1024 * kRfDecimation * kMonoDecimation;
-	static constexpr size_t block_size = (2 * 1024 * kRfDecimation * 800) / 147;
+	static constexpr size_t block_size = (2 * 7 * kRfDecimation * 800);
 
 	std::vector<float> rf_state_i(kRfNumTaps-1, 0.0);
 	std::vector<float> rf_state_q(kRfNumTaps-1, 0.0);
@@ -137,10 +137,10 @@ int main(int argc, char* argv[])
 			raw_bin_data_q[i/2] = raw_bin_data[i+1];
 		}
 
-		#if (DEBUG_MODE == 1)
-		if (block_id < 3) logVector("samples_i" + std::to_string(block_id), raw_bin_data_i);	
-		if (block_id < 3) logVector("samples_q" + std::to_string(block_id), raw_bin_data_q);
-		#endif
+		// #if (DEBUG_MODE == 1)
+		// if (block_id < 3) logVector("samples_i" + std::to_string(block_id), raw_bin_data_i);	
+		// if (block_id < 3) logVector("samples_q" + std::to_string(block_id), raw_bin_data_q);
+		// #endif
 
 		convolveFIR2(pre_fm_demod_i, 
 						 raw_bin_data_i,
