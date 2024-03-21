@@ -393,3 +393,7 @@ def fmPll(pllIn,
 
 	return ncoOut, integrator, phaseEst, trigOffset, lastNco 
 
+def delayBlock(input_block, state_block):
+	output_block = np.concatenate((state_block, input_block[:-len(state_block)]))
+	state_block = input_block[-len(state_block):]
+	return output_block, state_block
