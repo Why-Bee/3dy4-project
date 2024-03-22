@@ -41,7 +41,7 @@ constexpr int kMonoDecimation = 5;
 
 constexpr uint16_t kMaxUint14 = 0x3FFF;
 
-#define DEBUG_MODE 0U
+#define DEBUG_MODE 1U
 
 int main(int argc, char* argv[])
 {
@@ -136,11 +136,6 @@ int main(int argc, char* argv[])
 			raw_bin_data_q[i/2] = raw_bin_data[i+1];
 		}
 
-		#if (DEBUG_MODE == 1)
-		if (block_id < 3) logVector("samples_i" + std::to_string(block_id), raw_bin_data_i);	
-		if (block_id < 3) logVector("samples_q" + std::to_string(block_id), raw_bin_data_q);
-		#endif
-
 		convolveFIR2(pre_fm_demod_i, 
 						 raw_bin_data_i,
 						 rf_coeffs, 
@@ -164,6 +159,10 @@ int main(int argc, char* argv[])
 						 mono_coeffs, 
 						 mono_state,
 						 kMonoDecimation);
+
+        #if (DEBUG_MODE == 1)
+		if (block_id == 10) logVector("demodulated_samples_mono" + std::to_string(block_id), demodulated_samples);	
+		#endif
 
 		s16_audio_data.clear();
 		for (unsigned int k = 0; k < float_audio_data.size(); k++){

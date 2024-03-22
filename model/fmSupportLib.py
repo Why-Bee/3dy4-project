@@ -357,6 +357,7 @@ def fmPll(pllIn,
 	# trigOffset = 0
 	# lastNco = 1.0
 
+	# NOTE: I have no idea if lastNCO is the right thing to do here.
 	ncoOut[0] = lastNco 
 
 	for k in range(len(pllIn)):
@@ -377,7 +378,7 @@ def fmPll(pllIn,
 
 		trigOffset += 1
 
-		trigArg = 2*math.pi*(freq/Fs)*(trigOffset) + phaseEst
+		trigArg = (2*math.pi*freq/Fs)*(trigOffset) + phaseEst
 
 		feedbackI = math.cos(trigArg)
 
