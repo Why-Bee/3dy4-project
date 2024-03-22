@@ -270,8 +270,10 @@ int main(int argc, char* argv[])
 		float_stereo_right_data.clear(); float_stereo_right_data.resize(stereo_lpf_filtered.size());
 
 		for (size_t i = 0; i < stereo_lpf_filtered.size(); i++) {
-			float_stereo_left_data[i] = float_mono_data[i] + stereo_lpf_filtered[i];
-			float_stereo_right_data[i] = float_mono_data[i] - stereo_lpf_filtered[i];
+			// float_stereo_left_data[i] = float_mono_data[i] + stereo_lpf_filtered[i];
+			// float_stereo_right_data[i] = float_mono_data[i] - stereo_lpf_filtered[i];
+			float_stereo_left_data[i] = float_mono_data[i];
+			float_stereo_right_data[i] = float_mono_data[i];
 		}
 
 		std::cerr << "got left and right" << std::endl;
