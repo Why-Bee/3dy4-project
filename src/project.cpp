@@ -250,7 +250,7 @@ int main(int argc, char* argv[])
 			  kPilotNcoScale,
 			  nco_out);
 
-		std::cerr << "fm ppl'd" std::endl;
+		std::cerr << "fm ppl'd" << std::endl;
 		
 		// Mixer
 		for (size_t i = 0; i < stereo_bpf_filtered.size(); i++) {
