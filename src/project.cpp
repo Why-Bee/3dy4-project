@@ -197,6 +197,7 @@ int main(int argc, char* argv[])
 			raw_bin_data_i[i/2] = raw_bin_data[i];
 			raw_bin_data_q[i/2] = raw_bin_data[i+1];
 		}
+		std::cerr << "interleaved i and q" << std::endl;
 
 		#if (DEBUG_MODE == 1)
 		if (block_id < 3) logVector("samples_i" + std::to_string(block_id), raw_bin_data_i);	
@@ -214,6 +215,7 @@ int main(int argc, char* argv[])
 						 rf_coeffs, 
 						 rf_state_q,
 						 kRfDecimation);
+		std::cerr << "filtered i and q" << std::endl;
 
 		fmDemodulator(pre_fm_demod_i, 
 					  pre_fm_demod_q, 
@@ -221,8 +223,8 @@ int main(int argc, char* argv[])
 					  demod_state_q, 
 					  demodulated_samples);
 
-		std::cout << "entering delay block" << std::endl;
-		
+		std::cerr << "entering delay block" << std::endl;
+
 		delayBlock(demodulated_samples,
 				   demodulated_samples_delayed,
 				   apf_state);
@@ -242,7 +244,7 @@ int main(int argc, char* argv[])
 					demodulated_samples,
 					pilot_bpf_coeffs,
 					pilot_bpf_state);
-		std::cout << "hi " << std::endl;
+		std::cerr << "hi " << std::endl;
 
 		fmPll(pilot_filtered,
 			  kPilotToneFrequency,
