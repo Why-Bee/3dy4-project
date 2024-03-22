@@ -57,7 +57,7 @@ constexpr float kPilotBpfNumTaps = 101;
 
 constexpr uint16_t kMaxUint14 = 0x3FFF;
 
-#define DEBUG_MODE 0U
+#define DEBUG_MODE 1U
 
 int main(int argc, char* argv[])
 {
@@ -198,16 +198,11 @@ int main(int argc, char* argv[])
 			raw_bin_data_q[i/2] = raw_bin_data[i+1];
 		}
 
-		#if (DEBUG_MODE == 1)
-		if (block_id < 3) logVector("samples_i" + std::to_string(block_id), raw_bin_data_i);	
-		if (block_id < 3) logVector("samples_q" + std::to_string(block_id), raw_bin_data_q);
-		#endif
-
 		convolveFIR2(pre_fm_demod_i, 
-						 raw_bin_data_i,
-						 rf_coeffs, 
-						 rf_state_i,
-						 kRfDecimation);
+					raw_bin_data_i,
+					rf_coeffs, 
+					rf_state_i,
+					kRfDecimation);
 
 		convolveFIR2(pre_fm_demod_q, 
 						 raw_bin_data_q,
@@ -270,6 +265,17 @@ int main(int argc, char* argv[])
 		// 		if (std::isnan(float_mono_data[k])) s16_audio_data.push_back(0);
 		// 		else s16_audio_data.push_back(static_cast<short int>(float_mono_data[k]*(kMaxUint14+1)));
 		// }
+
+		#if (DEBUG_MODE == 1)
+		if (block_id == 10) logVector("demodulated_samples" + std::to_string(block_id), demodulated_samples);	
+		if (block_id == 10) logVector("demodulated_samples_delayed" + std::to_string(block_id), demodulated_samples_delayed);	
+		if (block_id == 10) logVector("float_mono_data" + std::to_string(block_id), float_mono_data);
+		if (block_id == 10) logVector("pilot_filtered" + std::to_string(block_id), pilot_filtered);
+		if (block_id == 10) logVector("nco_out" + std::to_string(block_id), nco_out);
+		if (block_id == 10) logVector("stereo_lpf_filtered" + std::to_string(block_id), stereo_lpf_filtered);
+		if (block_id == 10) logVector("float_stereo_left_data" + std::to_string(block_id), float_stereo_left_data);
+		if (block_id == 10) logVector("float_stereo_right_data" + std::to_string(block_id), float_stereo_right_data);
+		#endif
 
 		s16_audio_data.clear();
 		for (unsigned int k = 0; k < float_stereo_left_data.size(); k++){
