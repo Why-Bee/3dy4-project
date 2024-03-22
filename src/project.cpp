@@ -240,6 +240,7 @@ int main(int argc, char* argv[])
 					demodulated_samples,
 					pilot_bpf_coeffs,
 					pilot_bpf_state);
+		std::cout << "hi " << std::endl;
 
 		fmPll(pilot_filtered,
 			  kPilotToneFrequency,
