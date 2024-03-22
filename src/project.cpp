@@ -250,7 +250,7 @@ int main(int argc, char* argv[])
 		
 		// Mixer
 		for (size_t i = 0; i < stereo_bpf_filtered.size(); i++) {
-			stereo_mixed[i] = nco_out[i]*stereo_bpf_filtered[i];
+			stereo_mixed[i] = 2*nco_out[i]*stereo_bpf_filtered[i];
 		}
 
 		convolveFIR2(stereo_lpf_filtered,
