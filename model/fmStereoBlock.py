@@ -111,7 +111,7 @@ if __name__ == "__main__":
 
 	# state for the audio mono processing
 	mono_lpf_state = np.zeros(mono_taps-1)
-	mono_apf_state = np.zeros(int((stereo_lp_taps-1)/2))
+	fmdemod_apf_state = np.zeros(int((stereo_lp_taps-1)/2))
 
 	# if the number of samples in the last block is less than the block size
 	# it is fine to ignore the last few samples from the raw IQ file
@@ -137,12 +137,17 @@ if __name__ == "__main__":
 		# FM demodulator
 		fm_demod, state_phase = fmDemodArctan(i_ds, q_ds, state_phase)
 
+		fm_demod_delayed, fmdemod_apf_state = delayBlock(fm_demod, fmdemod_apf_state)
+
 		# Filter mono audio
-		mono_filt, mono_lpf_state = signal.lfilter(mono_coeff, 1.0, fm_demod, zi=mono_lpf_state)
+		mono_filt, mono_lpf_state = signal.lfilter(mono_coeff, 1.0, fm_demod_delayed, zi=mono_lpf_state)
+
+		# downsample mono data
+		mono_block = mono_filt[::mono_decim]
 
 		pilot_filt, state_pilot_bpf = signal.lfilter(pilot_coeff, 1.0, fm_demod, zi=state_pilot_bpf)
 
-		stereo_filt_lpf_bpf, state_stereo_bpf = signal.lfilter(stereo_bpf_coeff, 1.0, fm_demod, zi=state_stereo_bpf)
+		stereo_bpf_filtered, state_stereo_bpf = signal.lfilter(stereo_bpf_coeff, 1.0, fm_demod, zi=state_stereo_bpf)
 
 		ncoOut, pll_state_integrator, pll_state_phaseEst, pll_state_trigOffset, pll_state_lastNco = fmPll(
 			pilot_filt, 
@@ -160,22 +165,21 @@ if __name__ == "__main__":
 		# if block_count == 100: import pdb; pdb.set_trace()
 		
 		# analog mixer
-		stereo_mixed = ncoOut[:-1] * stereo_filt_lpf_bpf
+		stereo_mixed = ncoOut[:-1] * stereo_bpf_filtered
 		
 		# if block_count == 10:
 		# 	plt.plot(ncoOut)
 		# 	fmPlotPSD(ax0, stereo_mixed, rf_Fs/rf_decim, subfig_height[0], "ncoOut")
 		# 	plt.show()
 
+		# if block_count == 10:
+		# 	logVector("")
+
 		# low pass filter the stereo data
 		stereo_filt_lpf, state_stereo_lpf = signal.lfilter(stereo_lpf_coeff, 1.0, stereo_mixed, zi=state_stereo_lpf)
 
 		# downsample stereo data
 		stereo_block = 2*stereo_filt_lpf[::stereo_decim]
-
-		# downsample mono data
-		mono_filt_delayed, mono_apf_state = delayBlock(mono_filt, mono_apf_state)
-		mono_block = mono_filt_delayed[::mono_decim]
 		
 		stereo_left = np.concatenate((stereo_left, (mono_block + stereo_block)))
 		stereo_right = np.concatenate((stereo_right, (mono_block - stereo_block)))
