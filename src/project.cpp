@@ -194,6 +194,8 @@ int main(int argc, char* argv[])
 
 		// DO NOT RESIZE THESE
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
+			std::cerr << i << std::endl;
+
 			raw_bin_data_i[i/2] = raw_bin_data[i];
 			raw_bin_data_q[i/2] = raw_bin_data[i+1];
 		}
