@@ -221,6 +221,8 @@ int main(int argc, char* argv[])
 					  demod_state_q, 
 					  demodulated_samples);
 
+		std::cout << "entering delay block" << std::endl;
+		
 		delayBlock(demodulated_samples,
 				   demodulated_samples_delayed,
 				   apf_state);
