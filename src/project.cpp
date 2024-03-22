@@ -104,8 +104,8 @@ int main(int argc, char* argv[])
 
 	std::vector<float> float_mono_data;
 
-	std::vector<float> float_stereo_left_data;
-	std::vector<float> float_stereo_right_data;
+	std::vector<float> float_stereo_left_data(block_size/(kRfDecimation*kStereoDecimation), 0.0);
+	std::vector<float> float_stereo_right_data(block_size/(kRfDecimation*kStereoDecimation), 0.0);
 
 	std::vector<short int> s16_audio_data;
 
@@ -280,7 +280,7 @@ int main(int argc, char* argv[])
 					s16_audio_data.push_back(static_cast<short int>(float_stereo_right_data[k]*(kMaxUint14+1)));
 				}
 		}
-		
+
 		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
 	}
 	
