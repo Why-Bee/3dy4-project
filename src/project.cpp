@@ -272,13 +272,32 @@ int main(int argc, char* argv[])
 		// }
 
 		s16_audio_data.clear();
-		for (unsigned int k = 0; k < float_stereo_left_data.size(); k++){
-				if (std::isnan(float_mono_data[k])) {
-					s16_audio_data.push_back(0); s16_audio_data.push_back(0);
-				} else {
-					s16_audio_data.push_back(static_cast<short int>(float_stereo_left_data[k]*(kMaxUint14+1)));
-					s16_audio_data.push_back(static_cast<short int>(float_stereo_right_data[k]*(kMaxUint14+1)));
+		// for (unsigned int k = 0; k < float_stereo_left_data.size(); k++){
+		// 		if (std::isnan(float_mono_data[k])) {
+		// 			s16_audio_data.push_back(0); s16_audio_data.push_back(0);
+		// 		} else {
+		// 			s16_audio_data.push_back(static_cast<short int>(float_stereo_left_data[k]*(kMaxUint14+1)));
+		// 			s16_audio_data.push_back(static_cast<short int>(float_stereo_right_data[k]*(kMaxUint14+1)));
+		// 		}
+		// }
+		
+		// STERO AUDIO WRITING
+		for (unsigned int k = 0 ; k < 2*float_stereo_left_data.size(); k++) {
+			if (!(k%2)) {
+				if (std::isnan(float_stereo_right_data[k/2])) {
+					s16_audio_data.push_back(0);
 				}
+				else {
+					s16_audio_data.push_back(static_cast<short int>(float_stereo_right_data[k/2]*(kMaxUint14+1)));
+				}
+			} else {
+				if (std::isnan(float_stereo_left_data[(k-1)/2])) {
+					s16_audio_data.push_back(0);
+				}
+				else {
+					s16_audio_data.push_back(static_cast<short int>(float_stereo_left_data[(k-1)/2]*(kMaxUint14+1)));
+				}
+			}
 		}
 		
 		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
