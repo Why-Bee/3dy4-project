@@ -272,6 +272,7 @@ int main(int argc, char* argv[])
 		if (block_id == 10) logVector("float_mono_data" + std::to_string(block_id), float_mono_data);
 		if (block_id == 10) logVector("pilot_filtered" + std::to_string(block_id), pilot_filtered);
 		if (block_id == 10) logVector("nco_out" + std::to_string(block_id), nco_out);
+		if (block_id == 10) logVector("stereo_mixed" + std::to_string(block_id), stereo_mixed);
 		if (block_id == 10) logVector("stereo_lpf_filtered" + std::to_string(block_id), stereo_lpf_filtered);
 		if (block_id == 10) logVector("float_stereo_left_data" + std::to_string(block_id), float_stereo_left_data);
 		if (block_id == 10) logVector("float_stereo_right_data" + std::to_string(block_id), float_stereo_right_data);
