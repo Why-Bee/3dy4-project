@@ -34,7 +34,7 @@ constexpr float kRfCutoffFrequency = 100e3;
 constexpr unsigned short int kRfNumTaps = 101; // NOTE script works only for 151 here but not smth to rely on
 constexpr int kRfDecimation = 10;
 
-constexpr float kMonoSampleFrequency = 147*240e3;	// UPDATE
+constexpr float kMonoSampleFrequency = 240e3;	// UPDATE
 constexpr float kMonoCutoffFrequency = 16e3;
 constexpr unsigned short int kMonoNumTaps = 101; // NOTE script works when I use 151*2 here
 constexpr int kMonoDecimation = 5;
@@ -113,7 +113,8 @@ int main(int argc, char* argv[])
 	impulseResponseLPF(kMonoSampleFrequency, 
 					   kMonoCutoffFrequency, 
 					   kMonoNumTaps,
-					   mono_coeffs);
+					   mono_coeffs,
+					   147);
 
 	logVector("impulse_resp_mono", mono_coeffs);
 
@@ -161,21 +162,21 @@ int main(int argc, char* argv[])
 					  demodulated_samples);
 
 		#if (DEBUG_MODE == 1) 
-		// convolveFIRResample(float_audio_data,
-		// 					demodulated_samples,
-		// 					mono_coeffs,
-		// 					mono_state,
-		// 					800,
-		// 					147);
+		convolveFIRResample(float_audio_data,
+							demodulated_samples,
+							mono_coeffs,
+							mono_state,
+							800,
+							147);
 
 		// if (block_id < 3) logVector("resampled_audio" + std::to_string(block_id), float_audio_data);	
 
-		upsample(demodulated_samples, 147);
-		std::cerr << "here" << std::endl;
-		convolveFIR(float_audio_data, demodulated_samples, mono_coeffs, mono_state);
-		std::cerr << "here1" << std::endl;
-		downsample(float_audio_data, 800);
-		std::cerr << "here1" << std::endl;
+		// upsample(demodulated_samples, 147);
+		// std::cerr << "here" << std::endl;
+		// convolveFIR(float_audio_data, demodulated_samples, mono_coeffs, mono_state);
+		// std::cerr << "here1" << std::endl;
+		// downsample(float_audio_data, 800);
+		// std::cerr << "here1" << std::endl;
 
 
 		#else

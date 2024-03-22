@@ -29,6 +29,30 @@ void impulseResponseLPF(float Fs, float Fc, unsigned short int num_taps, std::ve
 	}
 }
 
+// function to compute the impulse response "h" based on the sinc function
+void impulseResponseLPF(float Fs, float Fc, unsigned short int num_taps, std::vector<float> &h, unsigned int upsampling_factor)
+{
+	// update num_taps and sampling rate to reflect upsampling factor
+	num_taps *= upsampling_factor;
+	Fs *= upsampling_factor;
+
+	// allocate memory for the impulse response
+	h.clear(); h.resize(num_taps, 0.0);
+
+	float normf = Fc / (Fs/2); // Normalize cutoff
+	for (int i = 0; i < num_taps; ++i) {
+		if (i == (num_taps - 1) / 2) {
+			h[i] = normf;
+		}
+		else{
+
+			h[i] = normf * ((std::sin(PI * normf * (i - (num_taps - 1) / 2))) / (PI * normf * (i - (num_taps - 1) / 2) ));	
+		}
+		h[i] *= pow(std::sin(i*PI/num_taps), 2) * upsampling_factor;
+	}
+}
+
+
 // function to compute the impulse response "h" for a band pass filter
 void impulseResponseBPF(float Fs, float Fb, float Fe, unsigned short int num_taps, std::vector<float> &h) 
 {
@@ -176,11 +200,13 @@ void convolveFIRResample(std::vector<float> &y,
     for (int n = 0; n < y.size(); n++) {
         phase = (n*decimation)%upsampling_factor;
         for (int k = phase; k < h.size(); k += upsampling_factor){
-			input_index = static_cast<int>(n*decimation/upsampling_factor) - (k)/upsampling_factor;
+			input_index = static_cast<int>(n*decimation/upsampling_factor) - k/upsampling_factor;
 			if ( input_index >= 0 ) {
-				y[n] += h[k] * x[input_index] * upsampling_factor;
+				// y[n] += h[k] * x[input_index] * upsampling_factor;
+				y[n] += h[k] * x[input_index];
 			} else { // take from state
-				y[n] += h[k] * zi[input_index+(zi.size())] * upsampling_factor;
+				// y[n] += h[k] * zi[input_index+(zi.size())] * upsampling_factor;
+				y[n] += h[k] * zi[input_index+(zi.size())] ;
 			}
         }
     }
