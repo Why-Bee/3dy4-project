@@ -177,6 +177,9 @@ if __name__ == "__main__":
 
 		# downsample stereo data
 		stereo_block = stereo_filt_lpf[::stereo_decim]
+
+		stereo_left_block = (mono_block + stereo_block)
+		stereo_right_block = (mono_block - stereo_block)
 		
 		stereo_left = np.concatenate((stereo_left, (mono_block + stereo_block)))
 		stereo_right = np.concatenate((stereo_right, (mono_block - stereo_block)))
@@ -189,8 +192,8 @@ if __name__ == "__main__":
 			logVector(f"py_nco_out{block_count}", ncoOut);
 			logVector(f"py_stereo_mixed{block_count}", stereo_mixed);
 			logVector(f"py_stereo_lpf_filtered{block_count}", stereo_filt_lpf);
-			logVector(f"py_float_stereo_left_data{block_count}", stereo_left);
-			logVector(f"py_float_stereo_right_data{block_count}", stereo_right);
+			logVector(f"py_float_stereo_left_data{block_count}", stereo_left_block);
+			logVector(f"py_float_stereo_right_data{block_count}", stereo_right_block);
 		# import pdb; pdb.set_trace()
 
 		block_count += 1

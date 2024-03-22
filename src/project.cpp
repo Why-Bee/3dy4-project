@@ -47,7 +47,7 @@ constexpr float kStereoDecimation = kMonoDecimation;
 
 constexpr float kStereoLpfFc = 38e3;
 constexpr float kStereoLpfNumTaps = 101;
-constexpr float kStereoLpfGain = 2.0;
+constexpr float kMixerGain = 2.0;
 
 constexpr float kPilotToneFrequency = 19e3;
 constexpr float kPilotNcoScale = 2.0;
@@ -245,15 +245,14 @@ int main(int argc, char* argv[])
 		
 		// Mixer
 		for (size_t i = 0; i < stereo_bpf_filtered.size(); i++) {
-			stereo_mixed[i] = nco_out[i]*stereo_bpf_filtered[i];
+			stereo_mixed[i] = kMixerGain*nco_out[i]*stereo_bpf_filtered[i];
 		}
 
 		convolveFIR2(stereo_lpf_filtered,
 					 stereo_mixed,
 					 stereo_lpf_coeffs,
 					 stereo_lpf_state,
-					 kStereoDecimation,
-					 kStereoLpfGain);
+					 kStereoDecimation);
 
 		for (size_t i = 0; i < stereo_lpf_filtered.size(); i++) {
 			float_stereo_left_data[i] = float_mono_data[i] + stereo_lpf_filtered[i];

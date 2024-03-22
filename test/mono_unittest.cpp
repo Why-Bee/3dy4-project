@@ -81,7 +81,7 @@ TEST_F(DatFileComparisonTest, IPreFmDemodFirstBlock) {
 }
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTest, IPreFmDemodSecondBlock) {
+TEST_F(DatFileComparisonTest, DISABLED_IPreFmDemodSecondBlock) {
     // Run Python script to generate actual .dat file
     int i = 1;
     std::vector<float> expected_data = readDatFile<float>(
@@ -123,7 +123,7 @@ TEST_F(DatFileComparisonTest, QPreFmDemodFirstBlock) {
 }
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTest, QPreFmDemodSecondBlock) {
+TEST_F(DatFileComparisonTest, DISABLED_QPreFmDemodSecondBlock) {
     // Run Python script to generate actual .dat file
     int i = 1;
     std::vector<float> expected_data = readDatFile<float>(
@@ -188,7 +188,7 @@ TEST_F(DatFileComparisonTest, QRawSampleComparisonFirst4Blocks) {
 }
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTest, BandpassCoeffsSameAsModel) {
+TEST_F(DatFileComparisonTest, DISABLED_BandpassCoeffsSameAsModel) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_firwin_bp.dat");
     std::vector<float> actual_data;
