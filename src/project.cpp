@@ -32,12 +32,12 @@ Ontario, Canada
 
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
-constexpr unsigned short int kRfNumTaps = 101; // NOTE script works only for 151 here but not smth to rely on
+constexpr unsigned short int kRfNumTaps = 101;
 constexpr int kRfDecimation = 10;
 
 constexpr float kMonoSampleFrequency = 240e3;
 constexpr float kMonoCutoffFrequency = 16e3;
-constexpr unsigned short int kMonoNumTaps = 101; // NOTE script works when I use 151*2 here
+constexpr unsigned short int kMonoNumTaps = 101;
 constexpr int kMonoDecimation = 5;
 
 constexpr float kStereoBpfFcHigh = 54e3;
@@ -80,7 +80,6 @@ int main(int argc, char* argv[])
 
 	PllState pll_state = PllState();
 
-	std::vector<float> raw_bin_data(block_size);
 	std::vector<float> raw_bin_data_i;
 	std::vector<float> raw_bin_data_q;
 
@@ -183,6 +182,7 @@ int main(int argc, char* argv[])
 
 	std::cerr << "block size: " << block_size << std::endl;
 	for (unsigned int block_id = 0; ;block_id++) {
+		std::vector<float> raw_bin_data(block_size);
 		readStdinBlockData(block_size, block_id, raw_bin_data);
 
 		if ((std::cin.rdstate()) != 0){
@@ -250,14 +250,12 @@ int main(int argc, char* argv[])
 			  kPilotNcoScale,
 			  nco_out);
 
-		std::cerr << "fm ppl'd" << std::endl;
 		
 		// Mixer
 		for (size_t i = 0; i < stereo_bpf_filtered.size(); i++) {
 			stereo_mixed[i] = 2*nco_out[i]*stereo_bpf_filtered[i];
 		}
 
-		std::cerr << "mixed" << std::endl;
 
 		convolveFIR2(stereo_lpf_filtered,
 					 stereo_mixed,
@@ -276,7 +274,6 @@ int main(int argc, char* argv[])
 			float_stereo_right_data[i] = float_mono_data[i];
 		}
 
-		std::cerr << "got left and right" << std::endl;
 
 		// s16_audio_data.clear();
 		// for (unsigned int k = 0; k < float_mono_data.size(); k++){
@@ -314,7 +311,6 @@ int main(int argc, char* argv[])
 		}
 		
 		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
-		std::cerr << "wrote" << std::endl;
 	}
 	
 	return 0;
