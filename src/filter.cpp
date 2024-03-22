@@ -76,8 +76,7 @@ void impulseResponseBPF(float Fs, float Fb, float Fe, unsigned short int num_tap
 
 void convolveFIR2(std::vector<float> &y, std::vector<float> &x, std::vector<float> &h, std::vector<float> &zi, int decimation)
 {
-
-		y.clear(); y.resize(x.size()/decimation, 0.0);
+	y.clear(); y.resize(x.size()/decimation, 0.0);
     int decim_n;
     for (int n = 0; n < x.size(); n += decimation) {
         decim_n = n/decimation;
@@ -200,12 +199,10 @@ void convolveFIRResample(std::vector<float> &y,
     for (int n = 0; n < y.size(); n++) {
         phase = (n*decimation)%upsampling_factor;
         for (int k = phase; k < h.size(); k += upsampling_factor){
-			input_index = static_cast<int>(n*decimation/upsampling_factor) - k/upsampling_factor;
+			input_index = static_cast<int>(((n*decimation)-k) / upsampling_factor);
 			if ( input_index >= 0 ) {
-				// y[n] += h[k] * x[input_index] * upsampling_factor;
 				y[n] += h[k] * x[input_index];
 			} else { // take from state
-				// y[n] += h[k] * zi[input_index+(zi.size())] * upsampling_factor;
 				y[n] += h[k] * zi[input_index+(zi.size())] ;
 			}
         }
