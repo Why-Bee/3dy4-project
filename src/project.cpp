@@ -194,12 +194,10 @@ int main(int argc, char* argv[])
 
 		// DO NOT RESIZE THESE
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
-			std::cerr << i << std::endl;
 
 			raw_bin_data_i[i/2] = raw_bin_data[i];
 			raw_bin_data_q[i/2] = raw_bin_data[i+1];
 		}
-		std::cerr << "interleaved i and q" << std::endl;
 
 		#if (DEBUG_MODE == 1)
 		if (block_id < 3) logVector("samples_i" + std::to_string(block_id), raw_bin_data_i);	
@@ -217,7 +215,6 @@ int main(int argc, char* argv[])
 						 rf_coeffs, 
 						 rf_state_q,
 						 kRfDecimation);
-		std::cerr << "filtered i and q" << std::endl;
 
 		fmDemodulator(pre_fm_demod_i, 
 					  pre_fm_demod_q, 
@@ -225,7 +222,6 @@ int main(int argc, char* argv[])
 					  demod_state_q, 
 					  demodulated_samples);
 
-		std::cerr << "entering delay block" << std::endl;
 
 		delayBlock(demodulated_samples,
 				   demodulated_samples_delayed,
@@ -246,7 +242,6 @@ int main(int argc, char* argv[])
 					demodulated_samples,
 					pilot_bpf_coeffs,
 					pilot_bpf_state);
-		std::cerr << "hi " << std::endl;
 
 		fmPll(pilot_filtered,
 			  kPilotToneFrequency,
@@ -254,11 +249,15 @@ int main(int argc, char* argv[])
 			  pll_state,
 			  kPilotNcoScale,
 			  nco_out);
+
+		std::cerr << "fm ppl'd" std::endl;
 		
 		// Mixer
 		for (size_t i = 0; i < stereo_bpf_filtered.size(); i++) {
 			stereo_mixed[i] = 2*nco_out[i]*stereo_bpf_filtered[i];
 		}
+
+		std::cerr << "mixed" << std::endl;
 
 		convolveFIR2(stereo_lpf_filtered,
 					 stereo_mixed,
@@ -271,6 +270,8 @@ int main(int argc, char* argv[])
 			float_stereo_left_data[i] = float_mono_data[i] + stereo_lpf_filtered[i];
 			float_stereo_right_data[i] = float_mono_data[i] - stereo_lpf_filtered[i];
 		}
+
+		std::cerr << "got left and right" << std::endl;
 
 		// s16_audio_data.clear();
 		// for (unsigned int k = 0; k < float_mono_data.size(); k++){
@@ -308,6 +309,7 @@ int main(int argc, char* argv[])
 		}
 		
 		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
+		std::cerr << "wrote" << std::endl;
 	}
 	
 	return 0;
