@@ -198,6 +198,7 @@ void convolveFIRResample(std::vector<float> &y,
 	int phase, input_index;
     for (int n = 0; n < y.size(); n++) {
         phase = (n*decimation)%upsampling_factor;
+		// input_index = ((decimation * n) - phase) / upsampling_factor;
         for (int k = phase; k < h.size(); k += upsampling_factor){
 			input_index = static_cast<int>(((n*decimation)-k) / upsampling_factor);
 			if ( input_index >= 0 ) {
@@ -205,6 +206,7 @@ void convolveFIRResample(std::vector<float> &y,
 			} else { // take from state
 				y[n] += h[k] * zi[input_index+(zi.size())] ;
 			}
+			// input_index--;
         }
     }
     for (int i = x.size() - zi.size(); i < x.size(); i++){

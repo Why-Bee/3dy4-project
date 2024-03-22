@@ -32,7 +32,7 @@ Ontario, Canada
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
 constexpr unsigned short int kRfNumTaps = 101; // NOTE script works only for 151 here but not smth to rely on
-constexpr int kRfDecimation = 10;
+constexpr int kRfDecimation = 9;
 
 constexpr float kMonoSampleFrequency = 240e3;	// UPDATE
 constexpr float kMonoCutoffFrequency = 16e3;
