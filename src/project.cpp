@@ -18,18 +18,6 @@ Ontario, Canada
 
 #include <limits>
 #include <unordered_map>
-//#include <thread>
-
-// CURRENT TASKS:
-// Do the Mono implementation
-// Algorithm:
-// Step 1: Get data from the RF dongle and store it (IQ samples)
-// Step 2: Low-pass filter the data with cutoff of 2.4 Msamples/s
-// Step 3: Downsample the data to 240 ksamples/s
-// Step 4: Demodulate the data using custom arctan demodulator
-// Step 5: Low-pass filter the demodulated data with cutoff of 16 kHz
-// Step 6: Downsample to 48 ksamples/s
-// Step 7: Output this audio data to file
 
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
@@ -118,15 +106,11 @@ int main(int argc, char* argv[])
 					   kRfNumTaps,
 					   rf_coeffs);
 
-	//logVector("impulse_resp_rf", rf_coeffs);
-
 	impulseResponseLPF(kMonoSampleFrequency, 
 					   kMonoCutoffFrequency, 
 					   kMonoNumTaps,
 					   mono_coeffs,
 					   config_map.at(mode).mono.mono_upsample);
-
-	//logVector("impulse_resp_mono", mono_coeffs);
 
 	raw_bin_data_i.clear(); raw_bin_data_i.resize(block_size/2);
 	raw_bin_data_q.clear(); raw_bin_data_q.resize(block_size/2);
@@ -148,11 +132,6 @@ int main(int argc, char* argv[])
 			raw_bin_data_q[i>>1] = raw_bin_data[i+1];
 		}
 
-		// #if (DEBUG_MODE == 1)
-		// if (block_id < 3) logVector("samples_i" + std::to_string(block_id), raw_bin_data_i);	
-		// if (block_id < 3) logVector("samples_q" + std::to_string(block_id), raw_bin_data_q);
-		// #endif
-
 		convolveFIR2(pre_fm_demod_i, 
 					 raw_bin_data_i,
 					 rf_coeffs, 
@@ -171,24 +150,12 @@ int main(int argc, char* argv[])
 					  demod_state_q, 
 					  demodulated_samples);
 
-		#if (DEBUG_MODE == 1) 
 		convolveFIRResample(float_audio_data,
 							demodulated_samples,
 							mono_coeffs,
 							mono_state,
 							config_map.at(mode).mono.mono_downsample,
-							config_map.at(mode).mono.mono_upsample);
-		#else
-
-		std::cerr << demodulated_samples.size() << std::endl;
-
-		convolveFIR2(float_audio_data, 
-						 demodulated_samples,
-						 mono_coeffs, 
-						 mono_state,
-						 kMonoDecimation);
-
-		#endif				 
+							config_map.at(mode).mono.mono_upsample);		 
 
 		std::vector<short int> s16_audio_data(float_audio_data.size());
 		for (unsigned int k = 0; k < float_audio_data.size(); k++){
