@@ -8,7 +8,7 @@ SOURCES = project.cpp iofunc.cpp filter.cpp  fourier.cpp  genfunc.cpp  logfunc.c
 OBJECTS = $(SOURCES:.cpp=.o)
 EXECUTABLE = project
 
-all: $(EXECUTABLE) clean
+all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJECTS)
 	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)

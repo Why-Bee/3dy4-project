@@ -107,6 +107,11 @@ int main(int argc, char* argv[])
 	std::vector<float> float_stereo_left_data(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
 	std::vector<float> float_stereo_right_data(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
 
+	std::vector<short int> s16_audio_data(float_stereo_right_data.size()*2);
+
+	std::vector<float> nco_out_debug;
+	std::vector<float> pilot_debug;
+
 	/* Parse command line arguments */
 	int mode = 0;
 	int channel = 0;
@@ -177,9 +182,6 @@ int main(int argc, char* argv[])
 	raw_bin_data_i.clear(); raw_bin_data_i.resize(block_size/2);
 	raw_bin_data_q.clear(); raw_bin_data_q.resize(block_size/2);
 
-	std::vector<float> nco_out_debug;
-	std::vector<float> pilot_debug;
-
 	std::cerr << "block size: " << block_size << std::endl;
 	for (unsigned int block_id = 0; ;block_id++) {
 		readStdinBlockData(block_size, block_id, raw_bin_data);
@@ -191,7 +193,6 @@ int main(int argc, char* argv[])
 
 		std::cerr << "Read block " << block_id << std::endl;
 
-		// DO NOT RESIZE THESE
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
 			raw_bin_data_i[i>>1] = raw_bin_data[i];
 			raw_bin_data_q[i>>1] = raw_bin_data[i+1];
@@ -235,25 +236,14 @@ int main(int argc, char* argv[])
 					pilot_bpf_coeffs,
 					pilot_bpf_state);
 
-
 		fmPll(pilot_filtered,
 			  kPilotToneFrequency,
 			  kMonoSampleFrequency,
 			  pll_state,
 			  kPilotNcoScale,
 			  nco_out);
-
-		if (block_id == 227 || block_id == 228) {
-			for (int i = 0; i < pilot_filtered.size(); i++) {
-				nco_out_debug.push_back(nco_out[i]);
-				pilot_debug.push_back(pilot_filtered[i]);
-			}
-		} else if (block_id == 229) {
-			logVector("nco_out_debug", nco_out_debug);
-			logVector("pilot_filtered_debug", pilot_debug);
-		}
 		
-		// Mixer
+		// Mixer @copyright Samuel Parent
 		for (size_t i = 0; i < stereo_bpf_filtered.size(); i++) {
 			stereo_mixed[i] = kMixerGain*nco_out[i]*stereo_bpf_filtered[i];
 		}
@@ -269,6 +259,18 @@ int main(int argc, char* argv[])
 			float_stereo_right_data[i] = float_mono_data[i] - stereo_lpf_filtered[i];
 		}
 
+		for (unsigned int k = 0; k < float_stereo_right_data.size(); k++){
+				if (std::isnan(float_stereo_right_data[k]) || std::isnan(float_stereo_left_data[k])) {
+					s16_audio_data[2*k] = 0;
+					s16_audio_data[2*k + 1] = 0;
+				} else {
+					s16_audio_data[2*k] = static_cast<short int>(float_stereo_right_data[k]*(kMaxUint14+1));
+					s16_audio_data[2*k + 1] = static_cast<short int>(float_stereo_left_data[k]*(kMaxUint14+1));
+				}
+		}
+		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
+
+		#if DEBUG_MODE
 		if (block_id == 100 || block_id == 1) {
 			std::cerr << "Logging Vectors" << std::endl;
 		 	logVector("demodulated_samples" + std::to_string(block_id), demodulated_samples);	
@@ -280,37 +282,19 @@ int main(int argc, char* argv[])
 			logVector("stereo_lpf_filtered" + std::to_string(block_id), stereo_lpf_filtered);
 			logVector("float_stereo_left_data" + std::to_string(block_id), float_stereo_left_data);
 			logVector("float_stereo_right_data" + std::to_string(block_id), float_stereo_right_data);
-		}	 
-
-		std::vector<short int> s16_audio_data(float_stereo_right_data.size()*2);
-		for (unsigned int k = 0; k < float_stereo_right_data.size(); k++){
-				if (std::isnan(float_stereo_right_data[k]) || std::isnan(float_stereo_left_data[k])) {
-					s16_audio_data[2*k] = 0;
-					s16_audio_data[2*k + 1] = 0;
-				} else {
-					s16_audio_data[2*k] = static_cast<short int>(float_stereo_right_data[k]*(kMaxUint14+1));
-					s16_audio_data[2*k + 1] = static_cast<short int>(float_stereo_left_data[k]*(kMaxUint14+1));
-				}
 		}
-		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
-		std::cerr << "size: " << nco_out.size()<< " " << stereo_bpf_filtered.size() << std::endl;
 
-		// std::vector<short int> s16_audio_data(float_stereo_left_data.size());
-		// for (unsigned int k = 0; k < float_stereo_left_data.size(); k++){
-		// 		if (std::isnan(float_stereo_left_data[k]) || std::isnan(float_stereo_right_data[k])) {
-		// 			// s16_audio_data.push_back(0); 
-		// 			s16_audio_data.push_back(0);
-		// 		} else {
-		// 			s16_audio_data.push_back(static_cast<short int>(float_stereo_left_data[k]*(kMaxUint14+1)));
-		// 			// s16_audio_data.push_back(static_cast<short int>(float_stereo_right_data[k]*(kMaxUint14+1)));
-		// 		}
-		// }
-
-		// fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
+		if (block_id == 227 || block_id == 228) {
+			for (int i = 0; i < pilot_filtered.size(); i++) {
+				nco_out_debug.push_back(nco_out[i]);
+				pilot_debug.push_back(pilot_filtered[i]);
+			}
+		} else if (block_id == 229) {
+			logVector("nco_out_debug", nco_out_debug);
+			logVector("pilot_filtered_debug", pilot_debug);
+		}
+		#endif 
 	}
-
-    // processing_thread.join();
-    // audio_write_thread.join();
 	
 	return 0;
 }
