@@ -14,8 +14,10 @@ Ontario, Canada
 #include "iofunc.h"
 #include "logfunc.h"
 #include "demod.h"
+#include "config.h"
 
 #include <limits>
+#include <unordered_map>
 //#include <thread>
 
 // CURRENT TASKS:
@@ -43,14 +45,18 @@ constexpr uint16_t kMaxUint14 = 0x3FFF;
 
 #define DEBUG_MODE 1U
 
+// TODO: Do we like this format?
+const std::unordered_map<uint8_t, TsConfig> config_map = {
+	{0, {102400, 10, TsMonoConfig{1,      5}, TsStereoConfig{1, 1}}},
+	{1, {147456, 6,  TsMonoConfig{1,     12}, TsStereoConfig{1, 1}}},
+	{2, {112000, 10, TsMonoConfig{147,  800}, TsStereoConfig{1, 1}}},
+	{3, {133746, 9,  TsMonoConfig{441, 3200}, TsStereoConfig{1, 1}}},
+};
+
 int main(int argc, char* argv[])
 {
 	// AudioChan audio_chan = AudioChan::Mono;
 	// Mode mode = Mode::Mode0;
-	// static constexpr size_t block_size = 2 * 1024 * kRfDecimation * kMonoDecimation;
-	// static constexpr size_t block_size = 2 * 7 * kRfDecimation * 800;
-	static constexpr size_t block_size = (2 * 1024 * kRfDecimation * 3200)/441;
-
 
 	std::vector<float> rf_state_i(kRfNumTaps-1, 0.0);
 	std::vector<float> rf_state_q(kRfNumTaps-1, 0.0);
@@ -58,7 +64,7 @@ int main(int argc, char* argv[])
 	float demod_state_i = 0.0;
 	float demod_state_q = 0.0;	
 
-	std::vector<float> raw_bin_data(block_size);
+	// std::vector<float> raw_bin_data(block_size);
 	std::vector<float> raw_bin_data_i;
 	std::vector<float> raw_bin_data_q;
 
@@ -98,6 +104,9 @@ int main(int argc, char* argv[])
 		exit(1);
 	}
 
+	static const size_t block_size = config_map.at(mode).block_size;
+	std::vector<float> raw_bin_data(block_size);
+
 	if (channel == 0) {
 		std::cerr << "Operating in mode " << mode << " with mono channel" << std::endl;
 	} else if (channel == 1) {
@@ -115,7 +124,7 @@ int main(int argc, char* argv[])
 					   kMonoCutoffFrequency, 
 					   kMonoNumTaps,
 					   mono_coeffs,
-					   441);
+					   config_map.at(mode).mono.mono_upsample);
 
 	//logVector("impulse_resp_mono", mono_coeffs);
 
@@ -148,13 +157,13 @@ int main(int argc, char* argv[])
 					 raw_bin_data_i,
 					 rf_coeffs, 
 					 rf_state_i,
-					 kRfDecimation);
+					 config_map.at(mode).rf_downsample);
 
 		convolveFIR2(pre_fm_demod_q, 
 					 raw_bin_data_q,
 					 rf_coeffs, 
 					 rf_state_q,
-					 kRfDecimation);
+					 config_map.at(mode).rf_downsample);
 
 		fmDemodulator(pre_fm_demod_i, 
 					  pre_fm_demod_q, 
@@ -167,19 +176,8 @@ int main(int argc, char* argv[])
 							demodulated_samples,
 							mono_coeffs,
 							mono_state,
-							3200,
-							441);
-
-		// if (block_id < 3) logVector("resampled_audio" + std::to_string(block_id), float_audio_data);	
-
-		// upsample(demodulated_samples, 147);
-		// std::cerr << "here" << std::endl;
-		// convolveFIR(float_audio_data, demodulated_samples, mono_coeffs, mono_state);
-		// std::cerr << "here1" << std::endl;
-		// downsample(float_audio_data, 800);
-		// std::cerr << "here1" << std::endl;
-
-
+							config_map.at(mode).mono.mono_downsample,
+							config_map.at(mode).mono.mono_upsample);
 		#else
 
 		std::cerr << demodulated_samples.size() << std::endl;
