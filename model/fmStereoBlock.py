@@ -204,7 +204,7 @@ if __name__ == "__main__":
 		# analog mixed
 		stereo_mixed = np.zeros(len(stereo_bpf_filtered))
 		for i in range(0,len(stereo_mixed)):
-			stereo_mixed[i] = ncoOut[i] * stereo_bpf_filtered[i]
+			stereo_mixed[i] = 2*ncoOut[i] * stereo_bpf_filtered[i]
 		
 		# if block_count == 10 or block_count == 1:
 		# 	plt.plot(ncoOut)
@@ -214,7 +214,7 @@ if __name__ == "__main__":
 		# low pass filter the stereo data
 		stereo_filt_lpf, state_stereo_lpf = signal.lfilter(stereo_lpf_coeff, 1.0, stereo_mixed, zi=state_stereo_lpf)
 
-		stereo_filt_lpf = 2*stereo_filt_lpf
+		stereo_filt_lpf = stereo_filt_lpf
 
 		# downsample stereo data
 		stereo_block = stereo_filt_lpf[::stereo_decim]
