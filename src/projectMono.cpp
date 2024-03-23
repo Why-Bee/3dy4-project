@@ -109,14 +109,14 @@ int main(int argc, char* argv[])
 					   kRfNumTaps,
 					   rf_coeffs);
 
-	//logVector("impulse_resp_rf", rf_coeffs);
+	logVector("impulse_resp_rf", rf_coeffs);
 
 	impulseResponseLPF(kMonoSampleFrequency, 
 					   kMonoCutoffFrequency, 
 					   kMonoNumTaps,
 					   mono_coeffs);
 
-	//logVector("impulse_resp_mono", mono_coeffs);
+	logVector("impulse_resp_mono", mono_coeffs);
 
 	raw_bin_data_i.clear(); raw_bin_data_i.resize(block_size/2);
 	raw_bin_data_q.clear(); raw_bin_data_q.resize(block_size/2);

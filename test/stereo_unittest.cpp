@@ -33,7 +33,7 @@ protected:
 };
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTestStereo, DISABLED_DemodSamplesSameAsModelBlock1) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_DemodSamplesSameAsModelBlock1) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_demodulated_samples1.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/demodulated_samples1.dat");
@@ -49,7 +49,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_DemodSamplesSameAsModelBlock1) {
 }
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTestStereo, DISABLED_DemodSamplesDelayedSameAsModelBlock1) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_DemodSamplesDelayedSameAsModelBlock1) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_demodulated_samples_delayed1.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/demodulated_samples_delayed1.dat");
@@ -64,7 +64,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_DemodSamplesDelayedSameAsModelBlock
     }
 }
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_FloatMonoDataSameAsModelBlock1) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_FloatMonoDataSameAsModelBlock1) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_float_mono_data1.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/float_mono_data1.dat");
@@ -79,7 +79,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_FloatMonoDataSameAsModelBlock1) {
     }
 }
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_PilotFilteredSameAsModelBlock1) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_PilotFilteredSameAsModelBlock1) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_pilot_filtered1.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/pilot_filtered1.dat");
@@ -94,7 +94,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_PilotFilteredSameAsModelBlock1) {
     }
 }
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_NcoOutSameAsModelBlock1) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_NcoOutSameAsModelBlock1) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_nco_out1.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/nco_out1.dat");
@@ -109,7 +109,7 @@ ASSERT_GT(expected_data.size(), 0);
     }
 }
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_StereoMixedSameAsModelBlock1) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_StereoMixedSameAsModelBlock1) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_stereo_mixed1.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/stereo_mixed1.dat");
@@ -124,7 +124,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_StereoMixedSameAsModelBlock1) {
     }
 }
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_StereoLpfSameAsModelBlock1) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_StereoLpfSameAsModelBlock1) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_stereo_lpf_filtered1.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/stereo_lpf_filtered1.dat");
@@ -139,7 +139,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_StereoLpfSameAsModelBlock1) {
     }
 }
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_FloatStereoLeftDataSameAsModelBlock1) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_FloatStereoLeftDataSameAsModelBlock1) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_float_stereo_left_data1.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/float_stereo_left_data1.dat");
@@ -154,7 +154,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_FloatStereoLeftDataSameAsModelBlock
     }
 }
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_FloatStereoRightDataSameAsModelBlock1) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_FloatStereoRightDataSameAsModelBlock1) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_float_stereo_right_data1.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/float_stereo_right_data1.dat");
@@ -170,7 +170,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_FloatStereoRightDataSameAsModelBloc
 }
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTestStereo, DISABLED_DemodSamplesSameAsModelBlock10) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_DemodSamplesSameAsModelBlock10) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_demodulated_samples10.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/demodulated_samples10.dat");
@@ -186,7 +186,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_DemodSamplesSameAsModelBlock10) {
 }
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTestStereo, DISABLED_DemodSamplesDelayedSameAsModelBlock10) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_DemodSamplesDelayedSameAsModelBlock10) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_demodulated_samples_delayed10.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/demodulated_samples_delayed10.dat");
@@ -201,7 +201,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_DemodSamplesDelayedSameAsModelBlock
     }
 }
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_FloatMonoDataSameAsModelBlock10) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_FloatMonoDataSameAsModelBlock10) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_float_mono_data10.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/float_mono_data10.dat");
@@ -216,7 +216,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_FloatMonoDataSameAsModelBlock10) {
     }
 }
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_PilotFilteredSameAsModelBlock10) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_PilotFilteredSameAsModelBlock10) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_pilot_filtered10.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/pilot_filtered10.dat");
@@ -231,7 +231,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_PilotFilteredSameAsModelBlock10) {
     }
 }
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_NcoOutSameAsModelBlock10) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_NcoOutSameAsModelBlock10) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_nco_out10.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/nco_out10.dat");
@@ -246,7 +246,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_NcoOutSameAsModelBlock10) {
     }
 }
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_StereoMixedSameAsModelBlock10) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_StereoMixedSameAsModelBlock10) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_stereo_mixed10.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/stereo_mixed10.dat");
@@ -261,7 +261,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_StereoMixedSameAsModelBlock10) {
     }
 }
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_StereoLpfSameAsModelBlock10) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_StereoLpfSameAsModelBlock10) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_stereo_lpf_filtered10.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/stereo_lpf_filtered10.dat");
@@ -276,7 +276,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_StereoLpfSameAsModelBlock10) {
     }
 }
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_FloatStereoLeftDataSameAsModelBlock10) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_FloatStereoLeftDataSameAsModelBlock10) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_float_stereo_left_data10.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/float_stereo_left_data10.dat");
@@ -291,7 +291,7 @@ TEST_F(DatFileComparisonTestStereo, DISABLED_FloatStereoLeftDataSameAsModelBlock
     }
 }
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_FloatStereoRightDataSameAsModelBlock10) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_FloatStereoRightDataSameAsModelBlock10) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_float_stereo_right_data10.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/float_stereo_right_data10.dat");
@@ -360,7 +360,7 @@ TEST_F(DatFileComparisonTestStereo, PllPyCompareBlock100) {
 }
 
 
-TEST_F(DatFileComparisonTestStereo, DISABLED_CheckDelay) {
+TEST_F(DatFileComparisonTestStereo, NOTDISABLED_CheckDelay) {
     size_t delay_size = 20;
 
     std::vector<float> idx_100 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99};

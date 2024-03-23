@@ -63,8 +63,6 @@ constexpr float kIQfactor = 2.0;
 
 int main(int argc, char* argv[])
 {
-	// AudioChan audio_chan = AudioChan::Mono;
-	// Mode mode = Mode::Mode0;
 	static constexpr size_t block_size = 2 * 1024 * kRfDecimation * kMonoDecimation;
 
 	std::vector<float> rf_state_i(kRfNumTaps-1, 0.0);
@@ -108,8 +106,6 @@ int main(int argc, char* argv[])
 
 	std::vector<float> float_stereo_left_data(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
 	std::vector<float> float_stereo_right_data(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
-
-	std::vector<short int> s16_audio_data;
 
 	/* Parse command line arguments */
 	int mode = 0;
@@ -158,10 +154,10 @@ int main(int argc, char* argv[])
 	logVector("impulse_resp_mono", mono_lpf_coeffs);
 
 	impulseResponseBPF(kMonoSampleFrequency,
-					   kStereoBpfFcLow,
-					   kStereoBpfFcHigh,
-					   kStereoBpfNumTaps,
-					   stereo_bpf_coeffs);
+					kStereoBpfFcLow,
+					kStereoBpfFcHigh,
+					kStereoBpfNumTaps,
+					stereo_bpf_coeffs);
 
 	logVector("impulse_resp_stereo_bpf", stereo_bpf_coeffs);
 
@@ -178,10 +174,11 @@ int main(int argc, char* argv[])
 					   kPilotBpfNumTaps,
 					   pilot_bpf_coeffs);
 
-	logVector("impulse_resp_pilot_bpf", pilot_bpf_coeffs);
-
 	raw_bin_data_i.clear(); raw_bin_data_i.resize(block_size/2);
 	raw_bin_data_q.clear(); raw_bin_data_q.resize(block_size/2);
+
+	std::vector<float> nco_out_debug;
+	std::vector<float> pilot_debug;
 
 	std::cerr << "block size: " << block_size << std::endl;
 	for (unsigned int block_id = 0; ;block_id++) {
@@ -196,15 +193,15 @@ int main(int argc, char* argv[])
 
 		// DO NOT RESIZE THESE
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
-			raw_bin_data_i[i/2] = raw_bin_data[i];
-			raw_bin_data_q[i/2] = raw_bin_data[i+1];
+			raw_bin_data_i[i>>1] = raw_bin_data[i];
+			raw_bin_data_q[i>>1] = raw_bin_data[i+1];
 		}
 
 		convolveFIR2(pre_fm_demod_i, 
-					raw_bin_data_i,
-					rf_coeffs, 
-					rf_state_i,
-					kRfDecimation);
+					 raw_bin_data_i,
+					 rf_coeffs, 
+					 rf_state_i,
+					 kRfDecimation);
 
 		convolveFIR2(pre_fm_demod_q, 
 					 raw_bin_data_q,
@@ -217,16 +214,16 @@ int main(int argc, char* argv[])
 					  demod_state_i, 
 					  demod_state_q, 
 					  demodulated_samples);
-
+		
 		delayBlock(demodulated_samples,
 				   demodulated_samples_delayed,
 				   apf_state);
 
 		convolveFIR2(float_mono_data, 
-					 demodulated_samples_delayed,
-					 mono_lpf_coeffs, 
-					 mono_lpf_state,
-					 kMonoDecimation);
+					demodulated_samples_delayed,
+					mono_lpf_coeffs, 
+					mono_lpf_state,
+					kMonoDecimation);	
 
 		convolveFIR(stereo_bpf_filtered,
 					demodulated_samples,
@@ -238,12 +235,24 @@ int main(int argc, char* argv[])
 					pilot_bpf_coeffs,
 					pilot_bpf_state);
 
+		std::cerr << "size: " << nco_out.size()<< " " << stereo_bpf_filtered.size() << std::endl;
+
 		fmPll(pilot_filtered,
 			  kPilotToneFrequency,
 			  kMonoSampleFrequency,
 			  pll_state,
 			  kPilotNcoScale,
 			  nco_out);
+
+		if (block_id == 100 || block_id == 101) {
+			for (int i = 0; i < pilot_filtered.size(); i++) {
+				nco_out_debug.push_back(nco_out[i]);
+				pilot_debug.push_back(pilot_filtered[i]);
+			}
+		} else if (block_id == 102) {
+			logVector("nco_out_debug", nco_out_debug);
+			logVector("pilot_filtered_debug", pilot_debug);
+		}
 		
 		// Mixer
 		for (size_t i = 0; i < stereo_bpf_filtered.size(); i++) {
@@ -261,14 +270,7 @@ int main(int argc, char* argv[])
 			float_stereo_right_data[i] = float_mono_data[i] - stereo_lpf_filtered[i];
 		}
 
-		// s16_audio_data.clear();
-		// for (unsigned int k = 0; k < float_mono_data.size(); k++){
-		// 		if (std::isnan(float_mono_data[k])) s16_audio_data.push_back(0);
-		// 		else s16_audio_data.push_back(static_cast<short int>(float_mono_data[k]*(kMaxUint14+1)));
-		// }
-
-		#if (DEBUG_MODE == 1)
-		if (block_id == 10 || block_id == 1) {
+		if (block_id == 100 || block_id == 1) {
 			std::cerr << "Logging Vectors" << std::endl;
 		 	logVector("demodulated_samples" + std::to_string(block_id), demodulated_samples);	
 			logVector("demodulated_samples_delayed" + std::to_string(block_id), demodulated_samples_delayed);	
@@ -279,13 +281,20 @@ int main(int argc, char* argv[])
 			logVector("stereo_lpf_filtered" + std::to_string(block_id), stereo_lpf_filtered);
 			logVector("float_stereo_left_data" + std::to_string(block_id), float_stereo_left_data);
 			logVector("float_stereo_right_data" + std::to_string(block_id), float_stereo_right_data);
-		}
-		#endif
+		}	 
 
-		s16_audio_data.clear();
+		// std::vector<short int> s16_audio_data(float_mono_data.size());
+		// for (unsigned int k = 0; k < float_mono_data.size(); k++){
+		// 		if (std::isnan(float_mono_data[k])) s16_audio_data[k] = 0;
+		// 		else s16_audio_data[k] = static_cast<short int>(float_mono_data[k]*(kMaxUint14+1));
+		// }
+		// fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
+
+		std::vector<short int> s16_audio_data(float_stereo_left_data.size());
 		for (unsigned int k = 0; k < float_stereo_left_data.size(); k++){
-				if (std::isnan(float_mono_data[k])) {
-					s16_audio_data.push_back(0); s16_audio_data.push_back(0);
+				if (std::isnan(float_stereo_left_data[k]) || std::isnan(float_stereo_right_data[k])) {
+					s16_audio_data.push_back(0); 
+					s16_audio_data.push_back(0);
 				} else {
 					s16_audio_data.push_back(static_cast<short int>(float_stereo_left_data[k]*(kMaxUint14+1)));
 					s16_audio_data.push_back(static_cast<short int>(float_stereo_right_data[k]*(kMaxUint14+1)));
@@ -294,6 +303,236 @@ int main(int argc, char* argv[])
 
 		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
 	}
+
+    // processing_thread.join();
+    // audio_write_thread.join();
 	
 	return 0;
 }
+
+// int main(int argc, char* argv[])
+// {
+// 	// AudioChan audio_chan = AudioChan::Mono;
+// 	// Mode mode = Mode::Mode0;
+// 	static constexpr size_t block_size = 2 * 1024 * kRfDecimation * kMonoDecimation;
+
+// 	std::vector<float> rf_state_i(kRfNumTaps-1, 0.0);
+// 	std::vector<float> rf_state_q(kRfNumTaps-1, 0.0);
+// 	float demod_state_i = 0.0;
+// 	float demod_state_q = 0.0;
+
+// 	std::vector<float> mono_lpf_state(kMonoNumTaps-1, 0.0);
+// 	std::vector<float> apf_state(static_cast<int>((kStereoLpfNumTaps-1)/2), 0.0);
+
+// 	std::vector<float> pilot_bpf_state(kPilotBpfNumTaps-1, 0.0);
+
+// 	std::vector<float> stereo_bpf_state(kStereoBpfNumTaps-1, 0.0);
+// 	std::vector<float> stereo_lpf_state(kStereoLpfNumTaps-1, 0.0);
+
+// 	PllState pll_state = PllState();
+
+// 	std::vector<float> raw_bin_data(block_size);
+// 	std::vector<float> raw_bin_data_i;
+// 	std::vector<float> raw_bin_data_q;
+
+// 	std::vector<float> pre_fm_demod_i;
+// 	std::vector<float> pre_fm_demod_q;
+
+// 	std::vector<float> rf_coeffs;
+// 	std::vector<float> mono_lpf_coeffs;
+// 	std::vector<float> stereo_bpf_coeffs;
+// 	std::vector<float> stereo_lpf_coeffs;
+// 	std::vector<float> pilot_bpf_coeffs;
+
+// 	std::vector<float> demodulated_samples;
+// 	std::vector<float> demodulated_samples_delayed(block_size/(kIQfactor*kRfDecimation), 0.0);
+
+// 	std::vector<float> pilot_filtered(block_size/(kIQfactor*kRfDecimation), 0.0);
+// 	std::vector<float> stereo_bpf_filtered(block_size/(kIQfactor*kRfDecimation), 0.0);
+// 	std::vector<float> stereo_mixed(block_size/(kIQfactor*kRfDecimation), 0.0);
+// 	std::vector<float> nco_out; // block_size/kRfDecimation + 1
+// 	std::vector<float> stereo_lpf_filtered(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
+
+// 	std::vector<float> float_mono_data;
+
+// 	std::vector<float> float_stereo_left_data(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
+// 	std::vector<float> float_stereo_right_data(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
+
+// 	// std::vector<short int> s16_audio_data;
+
+// 	/* Parse command line arguments */
+// 	int mode = 0;
+// 	int channel = 0;
+
+// 	if (argc < 2) {
+// 		std::cerr << "Operating in default mode 0 and channel 0 (mono)" << std::endl;
+// 	} else if (argc == 2 || argc == 3) {
+// 		mode = std::atoi(argv[1]);
+// 		if (mode > 3 || mode < 0) {
+// 			std::cerr << "Invalid mode entered: " << mode << std::endl;
+// 			exit(1);
+// 		}
+// 		if (argc == 3) {
+// 			channel = std::atoi(argv[2]);
+// 			if (channel > 1 || channel < 0) {
+// 				std::cerr << "Invalid channel entered: " << channel << std::endl;
+// 				exit(1);
+// 			}
+// 		}
+// 	} else {
+// 		std::cerr << "Usage: " << argv[0] << std::endl;
+// 		std::cerr << "or " << argv[0] << " <mode>" << std::endl;
+// 		std::cerr << "\t\t <mode> is a value from 0 to 3" << std::endl;
+// 		exit(1);
+// 	}
+
+// 	if (channel == 0) {
+// 		std::cerr << "Operating in mode " << mode << " with mono channel" << std::endl;
+// 	} else if (channel == 1) {
+// 		std::cerr << "Operating in mode " << mode << " with stereo channel" << std::endl;
+// 	}
+
+// 	impulseResponseLPF(kRfSampleFrequency, 
+// 					   kRfCutoffFrequency, 
+// 					   kRfNumTaps,
+// 					   rf_coeffs);
+
+// 	logVector("impulse_resp_rf", rf_coeffs);
+
+// 	impulseResponseLPF(kMonoSampleFrequency, 
+// 					   kMonoCutoffFrequency, 
+// 					   kMonoNumTaps,
+// 					   mono_lpf_coeffs);
+
+// 	logVector("impulse_resp_mono_bad", mono_lpf_coeffs);
+
+// 	impulseResponseBPF(kMonoSampleFrequency,
+// 					   kStereoBpfFcLow,
+// 					   kStereoBpfFcHigh,
+// 					   kStereoBpfNumTaps,
+// 					   stereo_bpf_coeffs);
+
+// 	logVector("impulse_resp_stereo_bpf", stereo_bpf_coeffs);
+
+// 	impulseResponseLPF(kMonoSampleFrequency,
+// 					   kStereoLpfFc,
+// 					   kStereoLpfNumTaps,
+// 					   stereo_lpf_coeffs);
+
+// 	logVector("impulse_resp_stereo_lpf", stereo_lpf_coeffs);
+
+// 	impulseResponseBPF(kMonoSampleFrequency,
+// 					   kPilotBpfFcLow,
+// 					   kPilotBpfFcHigh,
+// 					   kPilotBpfNumTaps,
+// 					   pilot_bpf_coeffs);
+
+// 	logVector("impulse_resp_pilot_bpf", pilot_bpf_coeffs);
+
+// 	raw_bin_data_i.clear(); raw_bin_data_i.resize(block_size/2);
+// 	raw_bin_data_q.clear(); raw_bin_data_q.resize(block_size/2);
+
+// 	std::cerr << "block size: " << block_size << std::endl;
+// 	for (unsigned int block_id = 0; ;block_id++) {
+// 		readStdinBlockData(block_size, block_id, raw_bin_data);
+
+// 		if ((std::cin.rdstate()) != 0){
+// 			std::cerr << "End of input stream reached" << std::endl;
+// 			exit(1);
+// 		}
+
+// 		std::cerr << "Read block " << block_id << std::endl;
+
+// 		// DO NOT RESIZE THESE
+// 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
+// 			raw_bin_data_i[i>>1] = raw_bin_data[i];
+// 			raw_bin_data_q[i>>1] = raw_bin_data[i+1];
+// 		}
+
+// 		convolveFIR2(pre_fm_demod_i, 
+// 					 raw_bin_data_i,
+// 					 rf_coeffs, 
+// 					 rf_state_i,
+// 					 kRfDecimation);
+
+// 		convolveFIR2(pre_fm_demod_q, 
+// 					 raw_bin_data_q,
+// 					 rf_coeffs, 
+// 					 rf_state_q,
+// 					 kRfDecimation);
+
+// 		fmDemodulator(pre_fm_demod_i, 
+// 					  pre_fm_demod_q, 
+// 					  demod_state_i, 
+// 					  demod_state_q, 
+// 					  demodulated_samples);
+
+// 		// delayBlock(demodulated_samples,
+// 		// 		   demodulated_samples_delayed,
+// 		// 		   apf_state);
+
+// 		convolveFIR2(float_mono_data, 
+// 						 demodulated_samples,
+// 						 mono_lpf_coeffs, 
+// 						 mono_lpf_state,
+// 						 kMonoDecimation);
+
+// 		// convolveFIR(stereo_bpf_filtered,
+// 		// 			demodulated_samples,
+// 		// 			stereo_bpf_coeffs,
+// 		// 			stereo_bpf_state);
+		
+// 		// convolveFIR(pilot_filtered,
+// 		// 			demodulated_samples,
+// 		// 			pilot_bpf_coeffs,
+// 		// 			pilot_bpf_state);
+
+// 		// fmPll(pilot_filtered,
+// 		// 	  kPilotToneFrequency,
+// 		// 	  kMonoSampleFrequency,
+// 		// 	  pll_state,
+// 		// 	  kPilotNcoScale,
+// 		// 	  nco_out);
+		
+// 		// // Mixer
+// 		// for (size_t i = 0; i < stereo_bpf_filtered.size(); i++) {
+// 		// 	stereo_mixed[i] = kMixerGain*nco_out[i]*stereo_bpf_filtered[i];
+// 		// }
+
+// 		// convolveFIR2(stereo_lpf_filtered,
+// 		// 			 stereo_mixed,
+// 		// 			 stereo_lpf_coeffs,
+// 		// 			 stereo_lpf_state,
+// 		// 			 kStereoDecimation);
+
+// 		// for (size_t i = 0; i < stereo_lpf_filtered.size(); i++) {
+// 		// 	float_stereo_left_data[i] = float_mono_data[i] + stereo_lpf_filtered[i];
+// 		// 	float_stereo_right_data[i] = float_mono_data[i] - stereo_lpf_filtered[i];
+// 		// }
+
+// 		std::vector<short int> s16_audio_data(float_mono_data.size());
+// 		for (unsigned int k = 0; k < float_mono_data.size(); k++){
+// 				if (std::isnan(float_mono_data[k])) s16_audio_data[k] = 0;
+// 				else s16_audio_data[k] = static_cast<short int>(float_mono_data[k]*(kMaxUint14+1));
+// 		}
+// 		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
+
+// 		#if (DEBUG_MODE == 1)
+// 		
+// 		#endif
+
+// 		// s16_audio_data.clear();
+// 		// for (unsigned int k = 0; k < float_stereo_left_data.size(); k++){
+// 		// 		if (std::isnan(float_mono_data[k])) {
+// 		// 			s16_audio_data.push_back(0); s16_audio_data.push_back(0);
+// 		// 		} else {
+// 		// 			s16_audio_data.push_back(static_cast<short int>(float_stereo_left_data[k]*(kMaxUint14+1)));
+// 		// 			s16_audio_data.push_back(static_cast<short int>(float_stereo_right_data[k]*(kMaxUint14+1)));
+// 		// 		}
+// 		// }
+
+// 		// fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
+// 	}
+	
+// 	return 0;
+// }

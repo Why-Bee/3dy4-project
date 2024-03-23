@@ -115,6 +115,9 @@ if __name__ == "__main__":
 	mono_lpf_state = np.zeros(mono_taps-1)
 	fmdemod_apf_state = np.zeros(int((stereo_lp_taps-1)/2))
 
+	nco_debug = np.array([])
+	pilot_debug = np.array([])
+
 	# if the number of samples in the last block is less than the block size
 	# it is fine to ignore the last few samples from the raw IQ file
 	while (block_count+1)*block_size < len(iq_data):
@@ -174,6 +177,14 @@ if __name__ == "__main__":
 			pll_state_lastNco, 
 			ncoScale=2,
 			normBandwidth=0.01)
+
+		if (block_count == 100 or block_count == 101):
+			nco_debug = np.concatenate((nco_debug, ncoOut))
+			pilot_debug = np.concatenate((pilot_debug, pilot_filt))
+		elif block_count == 102:
+			plt.plot(nco_debug)
+			plt.plot(pilot_debug)
+			plt.show()
 		
 		# import pdb; pdb.set_trace()
 		
@@ -214,7 +225,7 @@ if __name__ == "__main__":
 		stereo_left = np.concatenate((stereo_left, (mono_block + stereo_block)))
 		stereo_right = np.concatenate((stereo_right, (mono_block - stereo_block)))
 
-		if block_count == 10 or block_count == 1:
+		if block_count == 100 or block_count == 1:
 			logVector(f"py_demodulated_samples{block_count}", fm_demod);	
 			logVector(f"py_demodulated_samples_delayed{block_count}", fm_demod_delayed);	
 			logVector(f"py_float_mono_data{block_count}", mono_block);
