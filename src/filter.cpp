@@ -53,7 +53,7 @@ void impulseResponseBPF(float Fs, float Fb, float Fe, unsigned short int num_tap
 void convolveFIR2(std::vector<float> &y, std::vector<float> &x, std::vector<float> &h, std::vector<float> &zi, int decimation)
 {
 
-	// y.clear(); y.resize(x.size()/decimation, 0.0);
+	y.clear(); y.resize(x.size()/decimation, 0.0);
     int decim_n;
     for (int n = 0; n < x.size(); n += decimation) {
         decim_n = n/decimation;

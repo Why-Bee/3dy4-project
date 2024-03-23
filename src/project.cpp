@@ -59,7 +59,7 @@ constexpr uint16_t kMaxUint14 = 0x3FFF;
 
 constexpr float kIQfactor = 2.0;
 
-#define DEBUG_MODE 1U
+#define DEBUG_MODE 0U
 
 int main(int argc, char* argv[])
 {
