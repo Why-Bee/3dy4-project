@@ -34,20 +34,23 @@ constexpr float kRfCutoffFrequency = 100e3;
 constexpr unsigned short int kRfNumTaps = 101; // NOTE script works only for 151 here but not smth to rely on
 constexpr int kRfDecimation = 10;
 
-constexpr float kMonoSampleFrequency = 240e3;
+constexpr float kMonoSampleFrequency = 240e3;	// UPDATE
 constexpr float kMonoCutoffFrequency = 16e3;
 constexpr unsigned short int kMonoNumTaps = 101; // NOTE script works when I use 151*2 here
 constexpr int kMonoDecimation = 5;
 
 constexpr uint16_t kMaxUint14 = 0x3FFF;
 
-#define DEBUG_MODE 1U
+#define DEBUG_MODE 0U
 
 int main(int argc, char* argv[])
 {
 	// AudioChan audio_chan = AudioChan::Mono;
 	// Mode mode = Mode::Mode0;
 	static constexpr size_t block_size = 2 * 1024 * kRfDecimation * kMonoDecimation;
+	// static constexpr size_t block_size = 2 * 7 * kRfDecimation * 800;
+	// static constexpr size_t block_size = (2 * 1024 * kRfDecimation * 3200)/441;
+
 
 	std::vector<float> rf_state_i(kRfNumTaps-1, 0.0);
 	std::vector<float> rf_state_q(kRfNumTaps-1, 0.0);
@@ -68,7 +71,6 @@ int main(int argc, char* argv[])
 	std::vector<float> demodulated_samples;
 
 	std::vector<float> float_audio_data;
-	std::vector<short int> s16_audio_data;
 
 	/* Parse command line arguments */
 	int mode = 0;
@@ -107,14 +109,14 @@ int main(int argc, char* argv[])
 					   kRfNumTaps,
 					   rf_coeffs);
 
-	logVector("impulse_resp_rf", rf_coeffs);
+	//logVector("impulse_resp_rf", rf_coeffs);
 
 	impulseResponseLPF(kMonoSampleFrequency, 
 					   kMonoCutoffFrequency, 
 					   kMonoNumTaps,
 					   mono_coeffs);
 
-	logVector("impulse_resp_mono", mono_coeffs);
+	//logVector("impulse_resp_mono", mono_coeffs);
 
 	raw_bin_data_i.clear(); raw_bin_data_i.resize(block_size/2);
 	raw_bin_data_q.clear(); raw_bin_data_q.resize(block_size/2);
@@ -132,21 +134,26 @@ int main(int argc, char* argv[])
 
 		// DO NOT RESIZE THESE
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
-			raw_bin_data_i[i/2] = raw_bin_data[i];
-			raw_bin_data_q[i/2] = raw_bin_data[i+1];
+			raw_bin_data_i[i>>1] = raw_bin_data[i];
+			raw_bin_data_q[i>>1] = raw_bin_data[i+1];
 		}
 
+		// #if (DEBUG_MODE == 1)
+		// if (block_id < 3) logVector("samples_i" + std::to_string(block_id), raw_bin_data_i);	
+		// if (block_id < 3) logVector("samples_q" + std::to_string(block_id), raw_bin_data_q);
+		// #endif
+
 		convolveFIR2(pre_fm_demod_i, 
-						 raw_bin_data_i,
-						 rf_coeffs, 
-						 rf_state_i,
-						 kRfDecimation);
+					 raw_bin_data_i,
+					 rf_coeffs, 
+					 rf_state_i,
+					 kRfDecimation);
 
 		convolveFIR2(pre_fm_demod_q, 
-						 raw_bin_data_q,
-						 rf_coeffs, 
-						 rf_state_q,
-						 kRfDecimation);
+					 raw_bin_data_q,
+					 rf_coeffs, 
+					 rf_state_q,
+					 kRfDecimation);
 
 		fmDemodulator(pre_fm_demod_i, 
 					  pre_fm_demod_q, 
@@ -154,20 +161,30 @@ int main(int argc, char* argv[])
 					  demod_state_q, 
 					  demodulated_samples);
 
+		#if (DEBUG_MODE == 1) 
+		convolveFIRResample(float_audio_data,
+							demodulated_samples,
+							mono_coeffs,
+							mono_state,
+							3200,
+							441);
+
+		#else
+
+		std::cerr << demodulated_samples.size() << std::endl;
+
 		convolveFIR2(float_audio_data, 
 						 demodulated_samples,
 						 mono_coeffs, 
 						 mono_state,
 						 kMonoDecimation);
 
-        #if (DEBUG_MODE == 1)
-		if (block_id == 10) logVector("demodulated_samples_mono" + std::to_string(block_id), demodulated_samples);	
-		#endif
+		#endif				 
 
-		s16_audio_data.clear();
+		std::vector<short int> s16_audio_data(float_audio_data.size());
 		for (unsigned int k = 0; k < float_audio_data.size(); k++){
-				if (std::isnan(float_audio_data[k])) s16_audio_data.push_back(0);
-				else s16_audio_data.push_back(static_cast<short int>(float_audio_data[k]*(kMaxUint14+1)));
+				if (std::isnan(float_audio_data[k])) s16_audio_data[k] = 0;
+				else s16_audio_data[k] = static_cast<short int>(float_audio_data[k]*(kMaxUint14+1));
 		}
 		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
 	}
