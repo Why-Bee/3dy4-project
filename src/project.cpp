@@ -57,6 +57,8 @@ constexpr float kPilotBpfNumTaps = 101;
 
 constexpr uint16_t kMaxUint14 = 0x3FFF;
 
+constexpr float kIQfactor = 2.0;
+
 #define DEBUG_MODE 1U
 
 int main(int argc, char* argv[])
@@ -94,18 +96,18 @@ int main(int argc, char* argv[])
 	std::vector<float> pilot_bpf_coeffs;
 
 	std::vector<float> demodulated_samples;
-	std::vector<float> demodulated_samples_delayed(block_size/kRfDecimation, 0.0);
+	std::vector<float> demodulated_samples_delayed(block_size/(kIQfactor*kRfDecimation), 0.0);
 
-	std::vector<float> pilot_filtered(block_size/kRfDecimation, 0.0);
-	std::vector<float> stereo_bpf_filtered(block_size/kRfDecimation, 0.0);
-	std::vector<float> stereo_mixed(block_size/kRfDecimation, 0.0);
+	std::vector<float> pilot_filtered(block_size/(kIQfactor*kRfDecimation), 0.0);
+	std::vector<float> stereo_bpf_filtered(block_size/(kIQfactor*kRfDecimation), 0.0);
+	std::vector<float> stereo_mixed(block_size/(kIQfactor*kRfDecimation), 0.0);
 	std::vector<float> nco_out; // block_size/kRfDecimation + 1
-	std::vector<float> stereo_lpf_filtered;
+	std::vector<float> stereo_lpf_filtered(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
 
 	std::vector<float> float_mono_data;
 
-	std::vector<float> float_stereo_left_data(block_size/(kRfDecimation*kStereoDecimation), 0.0);
-	std::vector<float> float_stereo_right_data(block_size/(kRfDecimation*kStereoDecimation), 0.0);
+	std::vector<float> float_stereo_left_data(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
+	std::vector<float> float_stereo_right_data(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
 
 	std::vector<short int> s16_audio_data;
 
@@ -205,10 +207,10 @@ int main(int argc, char* argv[])
 					kRfDecimation);
 
 		convolveFIR2(pre_fm_demod_q, 
-						 raw_bin_data_q,
-						 rf_coeffs, 
-						 rf_state_q,
-						 kRfDecimation);
+					 raw_bin_data_q,
+					 rf_coeffs, 
+					 rf_state_q,
+					 kRfDecimation);
 
 		fmDemodulator(pre_fm_demod_i, 
 					  pre_fm_demod_q, 
@@ -266,15 +268,18 @@ int main(int argc, char* argv[])
 		// }
 
 		#if (DEBUG_MODE == 1)
-		if (block_id == 10) logVector("demodulated_samples" + std::to_string(block_id), demodulated_samples);	
-		if (block_id == 10) logVector("demodulated_samples_delayed" + std::to_string(block_id), demodulated_samples_delayed);	
-		if (block_id == 10) logVector("float_mono_data" + std::to_string(block_id), float_mono_data);
-		if (block_id == 10) logVector("pilot_filtered" + std::to_string(block_id), pilot_filtered);
-		if (block_id == 10) logVector("nco_out" + std::to_string(block_id), nco_out);
-		if (block_id == 10) logVector("stereo_mixed" + std::to_string(block_id), stereo_mixed);
-		if (block_id == 10) logVector("stereo_lpf_filtered" + std::to_string(block_id), stereo_lpf_filtered);
-		if (block_id == 10) logVector("float_stereo_left_data" + std::to_string(block_id), float_stereo_left_data);
-		if (block_id == 10) logVector("float_stereo_right_data" + std::to_string(block_id), float_stereo_right_data);
+		if (block_id == 10 || block_id == 1) {
+			std::cerr << "Logging Vectors" << std::endl;
+		 	logVector("demodulated_samples" + std::to_string(block_id), demodulated_samples);	
+			logVector("demodulated_samples_delayed" + std::to_string(block_id), demodulated_samples_delayed);	
+			logVector("float_mono_data" + std::to_string(block_id), float_mono_data);
+			logVector("pilot_filtered" + std::to_string(block_id), pilot_filtered);
+			logVector("nco_out" + std::to_string(block_id), nco_out);
+			logVector("stereo_mixed" + std::to_string(block_id), stereo_mixed);
+			logVector("stereo_lpf_filtered" + std::to_string(block_id), stereo_lpf_filtered);
+			logVector("float_stereo_left_data" + std::to_string(block_id), float_stereo_left_data);
+			logVector("float_stereo_right_data" + std::to_string(block_id), float_stereo_right_data);
+		}
 		#endif
 
 		s16_audio_data.clear();

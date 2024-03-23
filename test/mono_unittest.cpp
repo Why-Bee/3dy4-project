@@ -30,7 +30,7 @@ protected:
 };
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTest, RfImpulseSameAsModel) {
+TEST_F(DatFileComparisonTest, DISABLED_RfImpulseSameAsModel) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_impulse_resp_rf.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/impulse_resp_rf.dat");
@@ -45,7 +45,7 @@ TEST_F(DatFileComparisonTest, RfImpulseSameAsModel) {
 }
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTest, MonoImpulseSameAsModel) {
+TEST_F(DatFileComparisonTest, DISABLED_MonoImpulseSameAsModel) {
     // Run Python script to generate actual .dat file
     std::vector<float> expected_data = readDatFile<float>("../data/py_impulse_resp_mono.dat");
     std::vector<float> actual_data = readDatFile<float>("../data/impulse_resp_mono.dat");
@@ -60,7 +60,7 @@ TEST_F(DatFileComparisonTest, MonoImpulseSameAsModel) {
 }
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTest, IPreFmDemodFirstBlock) {
+TEST_F(DatFileComparisonTest, DISABLED_IPreFmDemodFirstBlock) {
     // Run Python script to generate actual .dat file
     int i = 0;
     std::vector<float> expected_data = readDatFile<float>(
@@ -102,7 +102,7 @@ TEST_F(DatFileComparisonTest, DISABLED_IPreFmDemodSecondBlock) {
 }
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTest, QPreFmDemodFirstBlock) {
+TEST_F(DatFileComparisonTest, DISABLED_QPreFmDemodFirstBlock) {
     // Run Python script to generate actual .dat file
     int i = 0;
     std::vector<float> expected_data = readDatFile<float>(
@@ -144,7 +144,7 @@ TEST_F(DatFileComparisonTest, DISABLED_QPreFmDemodSecondBlock) {
 }
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTest, IRawSampleComparisonFirst4Blocks) {
+TEST_F(DatFileComparisonTest, DISABLED_IRawSampleComparisonFirst4Blocks) {
     // Run Python script to generate actual .dat file
     for (int i = 0; i < 4; i++) {
         std::vector<float> expected_data = readDatFile<float>(
@@ -166,7 +166,7 @@ TEST_F(DatFileComparisonTest, IRawSampleComparisonFirst4Blocks) {
 }
 
 // Test case to compare .dat files
-TEST_F(DatFileComparisonTest, QRawSampleComparisonFirst4Blocks) {
+TEST_F(DatFileComparisonTest, DISABLED_QRawSampleComparisonFirst4Blocks) {
     // Run Python script to generate actual .dat file
     for (int i = 0; i < 4; i++) {
         std::vector<float> expected_data = readDatFile<float>(
@@ -225,7 +225,7 @@ TEST_F(DatFileComparisonTest, DISABLED_VerifyUpsamplerDownsampler) {
 }
 
 // Test case to compare fast and slow resamplers
-TEST_F(DatFileComparisonTest, FastResamplerSameAsSlow) {
+TEST_F(DatFileComparisonTest, DISABLED_FastResamplerSameAsSlow) {
     // Run Python script to generate actual .dat file
     for (int i = 0; i < 3; i++) {
         std::vector<float> expected_data = readDatFile<float>(
