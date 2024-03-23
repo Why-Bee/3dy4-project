@@ -6,7 +6,7 @@
 #include "filter.h"
 #include "pll.h"
 
-#define EPSILON_GROUP30 1e-1
+#define EPSILON_GROUP30 5e-2
 
 // Define the test fixture class
 class DatFileComparisonTestStereo : public ::testing::Test {
@@ -41,10 +41,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_DemodSamplesSameAsModelBlock1) {
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 1; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -57,10 +58,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_DemodSamplesDelayedSameAsModelBl
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 1; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -72,10 +74,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_FloatMonoDataSameAsModelBlock1) 
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 1; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -87,10 +90,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_PilotFilteredSameAsModelBlock1) 
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 1; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -101,11 +105,12 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_NcoOutSameAsModelBlock1) {
 
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
-ASSERT_GT(expected_data.size(), 0);
+    ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 1; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -117,10 +122,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_StereoMixedSameAsModelBlock1) {
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 1; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -132,10 +138,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_StereoLpfSameAsModelBlock1) {
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 1; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -147,10 +154,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_FloatStereoLeftDataSameAsModelBl
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 1; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -162,10 +170,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_FloatStereoRightDataSameAsModelB
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 1; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -178,10 +187,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_DemodSamplesSameAsModelBlock10) 
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 10; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -194,10 +204,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_DemodSamplesDelayedSameAsModelBl
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 10; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -209,10 +220,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_FloatMonoDataSameAsModelBlock10)
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 10; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -224,10 +236,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_PilotFilteredSameAsModelBlock10)
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 10; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -239,10 +252,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_NcoOutSameAsModelBlock10) {
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 10; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -254,10 +268,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_StereoMixedSameAsModelBlock10) {
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 10; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -269,10 +284,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_StereoLpfSameAsModelBlock10) {
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 10; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -284,10 +300,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_FloatStereoLeftDataSameAsModelBl
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 10; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -299,10 +316,11 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_FloatStereoRightDataSameAsModelB
     // Assert that the sizes of both vectors are equal
     ASSERT_EQ(expected_data.size(), actual_data.size());
     ASSERT_GT(expected_data.size(), 0);
+    int mismatch_count = 0;
 
-    // Iterate over each pair of values and perform ASSERT_NEAR
+    // Iterate over each pair of values and perform EXPECT_NEAR
     for (size_t i = 10; i < expected_data.size(); ++i) {
-        ASSERT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30); // Adjust EPSILON_GROUP30 as needed
+        EXPECT_NEAR(expected_data[i], actual_data[i], EPSILON_GROUP30) << "i :" << i << "mismatch count: " << ++mismatch_count;; // Adjust EPSILON_GROUP30 as needed
     }
 }
 
@@ -373,7 +391,7 @@ TEST_F(DatFileComparisonTestStereo, NOTDISABLED_CheckDelay) {
     delayBlock(idx_100, idx_delayed, idx_delayed_state);
 
     for (int i = 0; i < idx_100_exp.size(); i++) {
-        ASSERT_NEAR(idx_100_exp[i], idx_delayed[i], 1e-5);
+        EXPECT_NEAR(idx_100_exp[i], idx_delayed[i], 1e-5);
     }
 }
 
