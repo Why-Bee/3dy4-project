@@ -49,6 +49,23 @@ void impulseResponseBPF(float Fs, float Fb, float Fe, unsigned short int num_tap
 	}
 }
 
+// function to compute the RRC impulse response to be used by convolution
+void impulseResponseRRC(float Fs, int num_taps, std::vector<float>& impulseResponseRRC) {
+
+  float T_symbol = 1.0/2375.0; // duration for each symbol
+  float beta = 0.9; // roll-off factor
+  impulseResponseRRC.clear(); impulseResponseRRC.resize(num_taps, 0.0);
+
+  for (int k = 0; k < num_taps; k++) {
+    float t = (k-(num_taps/2.0))/Fs;
+    if (t == 0.0) impulseResponseRRC[k] = 1.0 + beta*((4.0/PI)-1.0);
+    else if ((t == -T_symbol/(4.0*beta)) || (t == T_symbol/(4.0*beta))) 
+      impulseResponseRRC[k] = (beta/std::sqrt(2.0))*( (1.0+2.0/PI) * (std::sin(PI/(4.0*beta))) + ((1.0-2.0/PI) * std::cos(PI/(4.0*beta)) ));
+    else 
+      impulseResponseRRC[k] = (std::sin(PI*t*(1.0-beta)/T_symbol) +  4.0*beta*(t/T_symbol)*std::cos(PI*t*(1.0+beta)/T_symbol)) /
+      (PI*t*(1.0-(4.0*beta*t/T_symbol)*(4.0*beta*t/T_symbol))/T_symbol);
+	}
+}
 
 void convolveFIR2(std::vector<float> &y, std::vector<float> &x, std::vector<float> &h, std::vector<float> &zi, int decimation)
 {
