@@ -26,8 +26,8 @@ rds_bp_fc_low = 54e3
 rds_bp_fc_high = 60e3
 rds_bp_taps = 101
 
-rds_squared_bp_fc_low = 113.5
-rds_squared_bp_fc_high = 114.5
+rds_squared_bp_fc_low = 113.5e3
+rds_squared_bp_fc_high = 114.5e3
 rds_squared_bp_taps = 101
 
 # state variables
@@ -59,10 +59,10 @@ if __name__ == "__main__":
 	iq_data = (np.float32(raw_data) - 128.0)/128.0
 	print("Reformatted raw RF data to 32-bit float format (" + str(iq_data.size * iq_data.itemsize) + " bytes)")
 	
-    # set up the subfigures for plotting
+	# set up the subfigures for plotting
 	subfig_height = np.array([0.8, 2, 1.6])
 	plt.rc('figure', figsize=(7.5, 7.5))	
-	fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, gridspec_kw={'height_ratios': subfig_height})
+	fig, (ax0) = plt.subplots(nrows=1, gridspec_kw={'height_ratios': subfig_height})
 	fig.subplots_adjust(hspace = .6)
 
 	# coefficients for the front-end low-pass filter
@@ -133,9 +133,9 @@ if __name__ == "__main__":
 			ncoScale=0.5,
 			normBandwidth=0.0025)
 		
-		if block_size == 10:
-			plt.plot(ncoOut)
-			plt.plot(rds_filt_carrier)
+		if block_count == 20:
+			plt.plot(ncoOut[:200])
+			plt.plot(rds_filt_carrier[:200]*75)
 			plt.show()
 			
 		block_count += 1
