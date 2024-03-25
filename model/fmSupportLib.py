@@ -304,6 +304,7 @@ def fmPll(pllIn,
 		  feedbackQ,
 		  trigOffset,
 		  lastNco,
+		  lastNcoQuad,
 		  ncoScale = 1.0, 
 		  phaseAdjust = 0.0, 
 		  normBandwidth = 0.01):
@@ -349,6 +350,9 @@ def fmPll(pllIn,
 	# output array for the NCO
 	ncoOut = np.empty(len(pllIn)+1)
 
+	# output array for the quadrature NCO
+	ncoOutQuad = np.empty(len(pllIn)+1)
+
 	# INIITIAL INTERNAL STATE
 	# integrator = 0.0
 	# phaseEst = 0.0
@@ -357,7 +361,8 @@ def fmPll(pllIn,
 	# trigOffset = 0
 	# lastNco = 1.0
 
-	ncoOut[0] = lastNco 
+	ncoOut[0] = lastNco
+	ncoOutQuad[0] = lastNcoQuad
 
 	for k in range(len(pllIn)):
 		# phase detector
@@ -384,13 +389,14 @@ def fmPll(pllIn,
 		feedbackQ = math.sin(trigArg)
 
 		ncoOut[k+1] = math.cos(trigArg*ncoScale + phaseAdjust)
+		ncoOutQuad[k+1] = math.cos(trigArg*ncoScale + phaseAdjust + math.pi/2)
 
 	# for stereo only the in-phase NCO component should be returned
 
 	# for block processing you should also return the state
 	# for RDS add also the quadrature NCO component to the output
 
-	return ncoOut, integrator, phaseEst, trigOffset, ncoOut[-1] 
+	return ncoOut, ncoOutQuad, integrator, phaseEst, trigOffset, ncoOut[-1], ncoOutQuad[-1] 
 
 def delayBlock(input_block, state_block):
 	output_block = np.concatenate((state_block, input_block[:-len(state_block)]))
@@ -412,3 +418,4 @@ def upsample1(y, upsampling_factor):
             y_extended[i * upsampling_factor + j] = 0.0
     
     return y_extended
+
