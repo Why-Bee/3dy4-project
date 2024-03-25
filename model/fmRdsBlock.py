@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
 	# select a block_size that is a multiple of KB
 	# and a multiple of decimation factors
-	block_size = 1024 * rf_decim * 10 *2
+	block_size = 1024 * rf_decim * 10 * 2
 	block_count = 0
 
 	# if the number of samples in the last block is less than the block size
