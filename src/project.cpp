@@ -24,15 +24,15 @@ Ontario, Canada
 #include <condition_variable>
 #include <atomic>
 
-void rf_frontend_thread(std::queue<std::vector<float>> &raw_bin_data_queue,
+void rf_frontend_thread(std::queue<std::vector<float>> &demodulated_samples_queue,
 						std::mutex &queue_mutex,
 						std::condition_variable &queue_cv,
-						std::atomic<int> &num_blocks_processed);
+						std::atomic<int> &num_blocks_processed_atomic);
 
-void audio_processing_thread(std::queue<std::vector<float>> &raw_bin_data_queue,
+void audio_processing_thread(std::queue<std::vector<float>> &demodulated_samples_queue,
 							 std::mutex &queue_mutex,
 							 std::condition_variable &queue_cv,
-							 std::atomic<int> &num_blocks_processed);
+							 std::atomic<int> &num_blocks_processed_atomic);
 
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
@@ -93,22 +93,22 @@ int main(int argc, char* argv[])
 		std::cerr << "Operating in mode " << mode << " with stereo channel" << std::endl;
 	}
 
-	std::queue <std::vector<float>> raw_bin_data_queue;
+	std::queue <std::vector<float>> demodulated_samples_queue;
 	std::mutex queue_mutex;
 	std::condition_variable queue_cv;
-	std::atomic<int> num_blocks_processed(0);
+	std::atomic<int> num_blocks_processed_atomic;
 
 	std::thread rf_processing_thread(rf_frontend_thread, 
-								  std::ref(raw_bin_data_queue),
+								  std::ref(demodulated_samples_queue),
 								  std::ref(queue_mutex),
 								  std::ref(queue_cv),
-								  std::ref(num_blocks_processed));
+								  std::ref(num_blocks_processed_atomic));
 
 	std::thread audio_consumer_thread(audio_processing_thread,
-								   std::ref(raw_bin_data_queue),
+								   std::ref(demodulated_samples_queue),
 								   std::ref(queue_mutex),
 								   std::ref(queue_cv),
-								   std::ref(num_blocks_processed));
+								   std::ref(num_blocks_processed_atomic));
 
 	rf_processing_thread.join();
 	audio_consumer_thread.join();
@@ -116,10 +116,10 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-void rf_frontend_thread(std::queue<std::vector<float>> &raw_bin_data_queue,
+void rf_frontend_thread(std::queue<std::vector<float>> &demodulated_samples_queue,
 						std::mutex &queue_mutex,
 						std::condition_variable &queue_cv,
-						std::atomic<int> &num_blocks_processed)
+						std::atomic<int> &num_blocks_processed_atomic)
 {
 	static const size_t block_size = config_map.at(mode).block_size;
 
@@ -149,7 +149,7 @@ void rf_frontend_thread(std::queue<std::vector<float>> &raw_bin_data_queue,
 	raw_bin_data_i.clear(); raw_bin_data_i.resize(block_size/2);
 	raw_bin_data_q.clear(); raw_bin_data_q.resize(block_size/2);
 
-	num_blocks_processed = 0;
+	num_blocks_processed_atomic = 0;
 
 	std::cerr << "block size: " << block_size << std::endl;
 	for (unsigned int block_id = 0; ;block_id++) {
@@ -189,20 +189,20 @@ void rf_frontend_thread(std::queue<std::vector<float>> &raw_bin_data_queue,
 
 	std::unique_lock<std::mutex> lock(queue_mutex);
 	// wait for the queue to be empty
-	while (raw_bin_data_queue.size() > kMaxQueueElements || num_blocks_processed) {
+	while (demodulated_samples_queue.size() >= kMaxQueueElements || num_blocks_processed_atomic) {
 		queue_cv.wait(lock);
 	}
 
-	raw_bin_data_queue.push(demodulated_samples); // TODO consider pushing reference instead
-	num_blocks_processed++;
-	queue_cv.notify_one();
+	demodulated_samples_queue.push(demodulated_samples); // TODO consider pushing reference instead
+	num_blocks_processed_atomic++;
+	queue_cv.notify_all();
 	lock.unlock();
 }
 
-void audio_processing_thread(std::queue<std::vector<float>> &raw_bin_data_queue,
+void audio_processing_thread(std::queue<std::vector<float>> &demodulated_samples_queue,
 							 std::mutex &queue_mutex,
 							 std::condition_variable &queue_cv,
-							 std::atomic<int> &num_blocks_processed)
+							 std::atomic<int> &num_blocks_processed_atomic)
 {
 	std::vector<float> mono_coeffs;
 	std::vector<float> mono_state(kMonoNumTaps-1, 0.0);
@@ -217,13 +217,13 @@ void audio_processing_thread(std::queue<std::vector<float>> &raw_bin_data_queue,
 					   
 	while (1) {
 		std::unique_lock <std::mutex> lock(queue_mutex);
-		while (raw_bin_data_queue.empty() && num_blocks_processed == 0) {
+		while (demodulated_samples_queue.empty() || num_blocks_processed_atomic != 1) {
 			queue_cv.wait(lock);
 		}
-		demodulated_samples = raw_bin_data_queue.front();
-		raw_bin_data_queue.pop(); // TODO just read here and pop in rds thread
-		num_blocks_processed = 0; // TODO consider incrementing here instead then reset when rds has popped it
-		queue_cv.notify_one();
+		demodulated_samples = demodulated_samples_queue.front();
+		demodulated_samples_queue.pop(); // TODO just read here and pop in rds thread
+		num_blocks_processed_atomic = 0; // TODO consider incrementing here instead then reset when rds has popped it
+		queue_cv.notify_all();
 		lock.unlock();
 	
 		convolveFIRResample(float_audio_data,
