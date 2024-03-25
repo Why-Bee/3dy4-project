@@ -98,17 +98,29 @@ int main(int argc, char* argv[])
 	std::condition_variable queue_cv;
 	std::atomic<int> num_blocks_processed_atomic;
 
-	std::thread rf_processing_thread(rf_frontend_thread, 
-								  std::ref(demodulated_samples_queue),
-								  std::ref(queue_mutex),
-								  std::ref(queue_cv),
-								  std::ref(num_blocks_processed_atomic));
+	// std::thread rf_processing_thread(rf_frontend_thread, 
+	// 							  std::ref(demodulated_samples_queue),
+	// 							  std::ref(queue_mutex),
+	// 							  std::ref(queue_cv),
+	// 							  std::ref(num_blocks_processed_atomic));
 
-	std::thread audio_consumer_thread(audio_processing_thread,
-								   std::ref(demodulated_samples_queue),
-								   std::ref(queue_mutex),
-								   std::ref(queue_cv),
-								   std::ref(num_blocks_processed_atomic));
+	// std::thread audio_consumer_thread(audio_processing_thread,
+	// 							   std::ref(demodulated_samples_queue),
+	// 							   std::ref(queue_mutex),
+	// 							   std::ref(queue_cv),
+	// 							   std::ref(num_blocks_processed_atomic));
+
+	std::thread rf_processing_thread = std::thread(rf_frontend_thread, 
+													std::ref(demodulated_samples_queue),
+													std::ref(queue_mutex),
+													std::ref(queue_cv),
+													std::ref(num_blocks_processed_atomic));
+
+	std::thread audio_consumer_thread = std::thread(audio_processing_thread,
+													std::ref(demodulated_samples_queue),
+													std::ref(queue_mutex),
+													std::ref(queue_cv),
+													std::ref(num_blocks_processed_atomic));
 
 	rf_processing_thread.join();
 	audio_consumer_thread.join();
@@ -139,7 +151,6 @@ void rf_frontend_thread(std::queue<std::vector<float>> &demodulated_samples_queu
 	std::vector<float> rf_coeffs;
 
 	std::vector<float> demodulated_samples;
-	std::vector<float> raw_bin_data(block_size);
 
 	impulseResponseLPF(kRfSampleFrequency, 
 					   kRfCutoffFrequency, 
@@ -153,6 +164,7 @@ void rf_frontend_thread(std::queue<std::vector<float>> &demodulated_samples_queu
 
 	std::cerr << "block size: " << block_size << std::endl;
 	for (unsigned int block_id = 0; ;block_id++) {
+		std::vector<float> raw_bin_data(block_size);
 		readStdinBlockData(block_size, block_id, raw_bin_data);
 
 		if ((std::cin.rdstate()) != 0){
@@ -189,7 +201,7 @@ void rf_frontend_thread(std::queue<std::vector<float>> &demodulated_samples_queu
 
 	std::unique_lock<std::mutex> lock(queue_mutex);
 	// wait for the queue to be empty
-	while (demodulated_samples_queue.size() >= kMaxQueueElements || num_blocks_processed_atomic) {
+	while (demodulated_samples_queue.size() >= kMaxQueueElements || num_blocks_processed_atomic != 0) {
 		queue_cv.wait(lock);
 	}
 	std::cerr << "PRODUCER: pushed to queue" << std::endl;
@@ -207,7 +219,6 @@ void audio_processing_thread(std::queue<std::vector<float>> &demodulated_samples
 	std::vector<float> mono_coeffs;
 	std::vector<float> mono_state(kMonoNumTaps-1, 0.0);
 	std::vector<float> float_audio_data;
-	std::vector<float> demodulated_samples;
 
 	impulseResponseLPF(kMonoSampleFrequency, 
 					   kMonoCutoffFrequency, 
@@ -216,14 +227,14 @@ void audio_processing_thread(std::queue<std::vector<float>> &demodulated_samples
 					   config_map.at(mode).mono.mono_upsample);
 					   
 	while (1) {
-		std::unique_lock <std::mutex> lock(queue_mutex);
+		std::unique_lock<std::mutex> lock(queue_mutex);
 		while (demodulated_samples_queue.empty() || num_blocks_processed_atomic != 1) {
 			queue_cv.wait(lock);
 		}
 		std::cerr << "CONSUMER: popped from queue" << std::endl;
-		demodulated_samples = demodulated_samples_queue.front();
-		demodulated_samples_queue.pop(); // TODO just read here and pop in rds thread
+		std::vector<float> demodulated_samples = demodulated_samples_queue.front();
 		num_blocks_processed_atomic = 0; // TODO consider incrementing here instead then reset when rds has popped it
+		demodulated_samples_queue.pop(); // TODO just read here and pop in rds thread
 		queue_cv.notify_all();
 		lock.unlock();
 	
