@@ -192,7 +192,7 @@ void rf_frontend_thread(std::queue<std::vector<float>> &demodulated_samples_queu
 	while (demodulated_samples_queue.size() >= kMaxQueueElements || num_blocks_processed_atomic) {
 		queue_cv.wait(lock);
 	}
-
+	std::cerr << "PRODUCER: pushed to queue" << std::endl;
 	demodulated_samples_queue.push(demodulated_samples); // TODO consider pushing reference instead
 	num_blocks_processed_atomic++;
 	queue_cv.notify_all();
@@ -220,6 +220,7 @@ void audio_processing_thread(std::queue<std::vector<float>> &demodulated_samples
 		while (demodulated_samples_queue.empty() || num_blocks_processed_atomic != 1) {
 			queue_cv.wait(lock);
 		}
+		std::cerr << "CONSUMER: popped from queue" << std::endl;
 		demodulated_samples = demodulated_samples_queue.front();
 		demodulated_samples_queue.pop(); // TODO just read here and pop in rds thread
 		num_blocks_processed_atomic = 0; // TODO consider incrementing here instead then reset when rds has popped it
