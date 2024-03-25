@@ -18,6 +18,21 @@ Ontario, Canada
 
 #include <limits>
 #include <unordered_map>
+#include <thread>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
+
+void rf_frontend_thread(std::queue<std::vector<float>> &raw_bin_data_queue,
+						std::mutex &queue_mutex,
+						std::condition_variable &queue_cv,
+						std::atomic<int> &num_blocks_processed);
+
+void audio_processing_thread(std::queue<std::vector<float>> &raw_bin_data_queue,
+							 std::mutex &queue_mutex,
+							 std::condition_variable &queue_cv,
+							 std::atomic<int> &num_blocks_processed);
 
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
@@ -31,6 +46,8 @@ constexpr int kMonoDecimation = 5;
 
 constexpr uint16_t kMaxUint14 = 0x3FFF;
 
+constexpr int kMaxQueueElements = 3; // TODO adjust as needed
+
 #define DEBUG_MODE 1U
 
 // TODO: Do we like this format?
@@ -41,34 +58,11 @@ const std::unordered_map<uint8_t, TsConfig> config_map = {
 	{3, {133746, 9,  TsMonoConfig{441, 3200}, TsStereoConfig{1, 1}}},
 };
 
+static int mode = 0;
+static int channel = 0;
 int main(int argc, char* argv[])
 {
-	// AudioChan audio_chan = AudioChan::Mono;
-	// Mode mode = Mode::Mode0;
-
-	std::vector<float> rf_state_i(kRfNumTaps-1, 0.0);
-	std::vector<float> rf_state_q(kRfNumTaps-1, 0.0);
-	std::vector<float> mono_state(kMonoNumTaps-1, 0.0);
-	float demod_state_i = 0.0;
-	float demod_state_q = 0.0;	
-
-	// std::vector<float> raw_bin_data(block_size);
-	std::vector<float> raw_bin_data_i;
-	std::vector<float> raw_bin_data_q;
-
-	std::vector<float> pre_fm_demod_i;
-	std::vector<float> pre_fm_demod_q;
-
-	std::vector<float> rf_coeffs;
-	std::vector<float> mono_coeffs;
-
-	std::vector<float> demodulated_samples;
-
-	std::vector<float> float_audio_data;
-
 	/* Parse command line arguments */
-	int mode = 0;
-	int channel = 0;
 
 	if (argc < 2) {
 		std::cerr << "Operating in default mode 0 and channel 0 (mono)" << std::endl;
@@ -92,8 +86,6 @@ int main(int argc, char* argv[])
 		exit(1);
 	}
 
-	static const size_t block_size = config_map.at(mode).block_size;
-	std::vector<float> raw_bin_data(block_size);
 
 	if (channel == 0) {
 		std::cerr << "Operating in mode " << mode << " with mono channel" << std::endl;
@@ -101,19 +93,63 @@ int main(int argc, char* argv[])
 		std::cerr << "Operating in mode " << mode << " with stereo channel" << std::endl;
 	}
 
+	std::queue <std::vector<float>> raw_bin_data_queue;
+	std::mutex queue_mutex;
+	std::condition_variable queue_cv;
+	std::atomic<int> num_blocks_processed(0);
+
+	std::thread rf_processing_thread(rf_frontend_thread, 
+								  std::ref(raw_bin_data_queue),
+								  std::ref(queue_mutex),
+								  std::ref(queue_cv),
+								  std::ref(num_blocks_processed));
+
+	std::thread audio_consumer_thread(audio_processing_thread,
+								   std::ref(raw_bin_data_queue),
+								   std::ref(queue_mutex),
+								   std::ref(queue_cv),
+								   std::ref(num_blocks_processed));
+
+	rf_processing_thread.join();
+	audio_consumer_thread.join();
+	
+	return 0;
+}
+
+void rf_frontend_thread(std::queue<std::vector<float>> &raw_bin_data_queue,
+						std::mutex &queue_mutex,
+						std::condition_variable &queue_cv,
+						std::atomic<int> &num_blocks_processed)
+{
+	static const size_t block_size = config_map.at(mode).block_size;
+
+	std::vector<float> rf_state_i(kRfNumTaps-1, 0.0);
+	std::vector<float> rf_state_q(kRfNumTaps-1, 0.0);
+	
+	float demod_state_i = 0.0;
+	float demod_state_q = 0.0;	
+
+	// std::vector<float> raw_bin_data(block_size);
+	std::vector<float> raw_bin_data_i;
+	std::vector<float> raw_bin_data_q;
+
+	std::vector<float> pre_fm_demod_i;
+	std::vector<float> pre_fm_demod_q;
+
+	std::vector<float> rf_coeffs;
+
+	std::vector<float> demodulated_samples;
+	std::vector<float> raw_bin_data(block_size);
+
 	impulseResponseLPF(kRfSampleFrequency, 
 					   kRfCutoffFrequency, 
 					   kRfNumTaps,
 					   rf_coeffs);
 
-	impulseResponseLPF(kMonoSampleFrequency, 
-					   kMonoCutoffFrequency, 
-					   kMonoNumTaps,
-					   mono_coeffs,
-					   config_map.at(mode).mono.mono_upsample);
-
 	raw_bin_data_i.clear(); raw_bin_data_i.resize(block_size/2);
 	raw_bin_data_q.clear(); raw_bin_data_q.resize(block_size/2);
+
+	num_blocks_processed = 0;
 
 	std::cerr << "block size: " << block_size << std::endl;
 	for (unsigned int block_id = 0; ;block_id++) {
@@ -149,7 +185,47 @@ int main(int argc, char* argv[])
 					  demod_state_i, 
 					  demod_state_q, 
 					  demodulated_samples);
+	}
 
+	std::unique_lock<std::mutex> lock(queue_mutex);
+	// wait for the queue to be empty
+	while (raw_bin_data_queue.size() > kMaxQueueElements || num_blocks_processed) {
+		queue_cv.wait(lock);
+	}
+
+	raw_bin_data_queue.push(demodulated_samples); // TODO consider pushing reference instead
+	num_blocks_processed++;
+	queue_cv.notify_one();
+	lock.unlock();
+}
+
+void audio_processing_thread(std::queue<std::vector<float>> &raw_bin_data_queue,
+							 std::mutex &queue_mutex,
+							 std::condition_variable &queue_cv,
+							 std::atomic<int> &num_blocks_processed)
+{
+	std::vector<float> mono_coeffs;
+	std::vector<float> mono_state(kMonoNumTaps-1, 0.0);
+	std::vector<float> float_audio_data;
+	std::vector<float> demodulated_samples;
+
+	impulseResponseLPF(kMonoSampleFrequency, 
+					   kMonoCutoffFrequency, 
+					   kMonoNumTaps,
+					   mono_coeffs,
+					   config_map.at(mode).mono.mono_upsample);
+					   
+	while (1) {
+		std::unique_lock <std::mutex> lock(queue_mutex);
+		while (raw_bin_data_queue.empty() && num_blocks_processed == 0) {
+			queue_cv.wait(lock);
+		}
+		demodulated_samples = raw_bin_data_queue.front();
+		raw_bin_data_queue.pop(); // TODO just read here and pop in rds thread
+		num_blocks_processed = 0; // TODO consider incrementing here instead then reset when rds has popped it
+		queue_cv.notify_one();
+		lock.unlock();
+	
 		convolveFIRResample(float_audio_data,
 							demodulated_samples,
 							mono_coeffs,
@@ -158,15 +234,13 @@ int main(int argc, char* argv[])
 							config_map.at(mode).mono.mono_upsample);		 
 
 		std::vector<short int> s16_audio_data(float_audio_data.size());
-		for (unsigned int k = 0; k < float_audio_data.size(); k++){
+		for (unsigned int k = 0; k < float_audio_data.size(); k++) {
 				if (std::isnan(float_audio_data[k])) s16_audio_data[k] = 0;
 				else s16_audio_data[k] = static_cast<short int>(float_audio_data[k]*(kMaxUint14+1));
 		}
 		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
 	}
-
-    // processing_thread.join();
-    // audio_write_thread.join();
-	
-	return 0;
 }
+
+
+	
