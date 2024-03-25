@@ -396,3 +396,19 @@ def delayBlock(input_block, state_block):
 	output_block = np.concatenate((state_block, input_block[:-len(state_block)]))
 	state_block = input_block[-len(state_block):]
 	return output_block, state_block
+
+# Upsample
+def upsample1(y, upsampling_factor):
+    if upsampling_factor == 1:
+        return y
+
+    original_size = len(y)
+    y_extended = y.copy()
+    y_extended.extend([0.0] * (original_size * (upsampling_factor - 1)))
+
+    for i in range(original_size - 1, -1, -1):
+        y_extended[i * upsampling_factor] = y[i]
+        for j in range(1, upsampling_factor):
+            y_extended[i * upsampling_factor + j] = 0.0
+    
+    return y_extended
