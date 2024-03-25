@@ -416,6 +416,7 @@ def upsample(y, upsampling_factor):
     
     return y_extended
 
+# Clock and data recovery
 def sampling_start_adjust(block, samples_per_symbol):
     abs_min_idx = 0
     abs_min = abs(block[abs_min_idx])
