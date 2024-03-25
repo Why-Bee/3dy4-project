@@ -401,7 +401,7 @@ def delayBlock(input_block, state_block):
 	return output_block, state_block
 
 # Upsample
-def upsample1(y, upsampling_factor):
+def upsample(y, upsampling_factor):
     if upsampling_factor == 1:
         return y
 
@@ -415,3 +415,14 @@ def upsample1(y, upsampling_factor):
             y_extended[i * upsampling_factor + j] = 0.0
     
     return y_extended
+
+def sampling_start_adjust(block, samples_per_symbol):
+    abs_min_idx = 0
+    abs_min = abs(block[abs_min_idx])
+    for i in range(0, len(block)-10):
+        diff = abs(block[i])
+        if diff < abs_min:
+            abs_min = diff
+            abs_min_idx = i
+
+    return ((abs_min_idx + int(samples_per_symbol/2)) % samples_per_symbol)
