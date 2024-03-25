@@ -42,5 +42,7 @@
 
 build
 
+!*.ipynb
+
 # do NOT commit and push large binary files used for debugging
 
