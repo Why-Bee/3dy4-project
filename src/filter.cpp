@@ -209,7 +209,7 @@ void convolveFIRResample(std::vector<float> &y,
 			// input_index--;
         }
     }
-    for (int i = x.size() - zi.size(); i < x.size(); i++){
+    for (int i = x.size() - zi.size(); i < x.size(); i++) {
       zi[i - x.size() + zi.size()] = x[i];
     }
 }

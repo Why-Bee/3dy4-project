@@ -39,7 +39,7 @@ constexpr int kMonoDecimation = 5;
 
 constexpr uint16_t kMaxUint14 = 0x3FFF;
 
-#define DEBUG_MODE 1U
+#define DEBUG_MODE 0U
 
 const std::unordered_map<uint8_t, Config> config_map = {
 	{.mode=0, {.block_size=76800, .rf_downsample=10, AudioConfig{.upsample=  1, .downsample=   5}, RdsConfig{.upsample=247, .downsample=1920, .sps=13}}},
@@ -94,8 +94,8 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 					   kRfNumTaps,
 					   rf_coeffs);
 
-	raw_bin_data_i.clear(); raw_bin_data_i.resize(block_size/2);
-	raw_bin_data_q.clear(); raw_bin_data_q.resize(block_size/2);
+	raw_bin_data_i.resize(block_size/2);
+	raw_bin_data_q.resize(block_size/2);
 
 
 	std::cerr << "block size: " << block_size << std::endl;
@@ -171,5 +171,3 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 	}
 }
 
-
-	
