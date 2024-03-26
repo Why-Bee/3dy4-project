@@ -25,68 +25,38 @@ Ontario, Canada
 #include <atomic>
 
 void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
-
 void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
 
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
-constexpr unsigned short int kRfNumTaps = 101; // NOTE script works only for 151 here but not smth to rely on
+constexpr unsigned short int kRfNumTaps = 101;
 constexpr int kRfDecimation = 9;
 
-constexpr float kMonoSampleFrequency = 240e3;	// UPDATE
+constexpr float kMonoSampleFrequency = 240e3;
 constexpr float kMonoCutoffFrequency = 16e3;
-constexpr unsigned short int kMonoNumTaps = 101; // NOTE script works when I use 151*2 here
+constexpr unsigned short int kMonoNumTaps = 101;
 constexpr int kMonoDecimation = 5;
 
 constexpr uint16_t kMaxUint14 = 0x3FFF;
 
-constexpr int kMaxQueueElements = 3; // TODO adjust as needed
-
 #define DEBUG_MODE 1U
 
-// TODO: Do we like this format?
-const std::unordered_map<uint8_t, TsConfig> config_map = {
-	{0, {102400, 10, TsMonoConfig{1,      5}, TsStereoConfig{1, 1}}},
-	{1, {147456, 6,  TsMonoConfig{1,     12}, TsStereoConfig{1, 1}}},
-	{2, {112000, 10, TsMonoConfig{147,  800}, TsStereoConfig{1, 1}}},
-	{3, {133746, 9,  TsMonoConfig{441, 3200}, TsStereoConfig{1, 1}}},
+const std::unordered_map<uint8_t, Config> config_map = {
+	{.mode=0, {.block_size=76800, .rf_downsample=10, AudioConfig{.upsample=  1, .downsample=   5}, RdsConfig{.upsample=247, .downsample=1920, .sps=13}}},
+	{.mode=1, {.block_size=86400, .rf_downsample= 6, AudioConfig{.upsample=  1, .downsample=  12}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0}}},
+	{.mode=2, {.block_size=96000, .rf_downsample=10, AudioConfig{.upsample=147, .downsample= 800}, RdsConfig{.upsample= 19, .downsample=  64, .sps=30}}},
+	{.mode=3, {.block_size=57600, .rf_downsample= 9, AudioConfig{.upsample=441, .downsample=3200}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0}}},
 };
 
-static int mode = 0;
-static int channel = 0;
+/* GLOBAL VARIABLES */
+int mode = 0;    // mode 0, 1, 2, 3. Default is 0
+int channel = 0; // 1 for mono, 2 for stereo (rds runs in stereo)
+
 int main(int argc, char* argv[])
 {
-	/* Parse command line arguments */
+	argparse_mode_channel(argc, argv, mode, channel);
 
-	if (argc < 2) {
-		std::cerr << "Operating in default mode 0 and channel 0 (mono)" << std::endl;
-	} else if (argc == 2 || argc == 3) {
-		mode = std::atoi(argv[1]);
-		if (mode > 3 || mode < 0) {
-			std::cerr << "Invalid mode entered: " << mode << std::endl;
-			exit(1);
-		}
-		if (argc == 3) {
-			channel = std::atoi(argv[2]);
-			if (channel > 1 || channel < 0) {
-				std::cerr << "Invalid channel entered: " << channel << std::endl;
-				exit(1);
-			}
-		}
-	} else {
-		std::cerr << "Usage: " << argv[0] << std::endl;
-		std::cerr << "or " << argv[0] << " <mode>" << std::endl;
-		std::cerr << "\t\t <mode> is a value from 0 to 3" << std::endl;
-		exit(1);
-	}
-
-
-	if (channel == 0) {
-		std::cerr << "Operating in mode " << mode << " with mono channel" << std::endl;
-	} else if (channel == 1) {
-		std::cerr << "Operating in mode " << mode << " with stereo channel" << std::endl;
-	}
-
+	// Queue for demodulated samples shared between threads
 	SafeQueue<std::vector<float>> demodulated_samples_queue;
 
 	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue));
@@ -109,7 +79,6 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 	float demod_state_i = 0.0;
 	float demod_state_q = 0.0;	
 
-	// std::vector<float> raw_bin_data(block_size);
 	std::vector<float> raw_bin_data_i;
 	std::vector<float> raw_bin_data_q;
 
@@ -181,7 +150,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 					   kMonoCutoffFrequency, 
 					   kMonoNumTaps,
 					   mono_coeffs,
-					   config_map.at(mode).mono.mono_upsample);
+					   config_map.at(mode).audio.upsample);
 					   
 	while (1) {
 		std::vector<float> demodulated_samples = demodulated_samples_queue.dequeue();
@@ -190,8 +159,8 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 							demodulated_samples,
 							mono_coeffs,
 							mono_state,
-							config_map.at(mode).mono.mono_downsample,
-							config_map.at(mode).mono.mono_upsample);		 
+							config_map.at(mode).audio.downsample,
+							config_map.at(mode).audio.upsample);		 
 
 		std::vector<short int> s16_audio_data(float_audio_data.size());
 		for (unsigned int k = 0; k < float_audio_data.size(); k++) {
