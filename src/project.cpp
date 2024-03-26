@@ -164,9 +164,11 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 					  demod_state_i, 
 					  demod_state_q, 
 					  demodulated_samples);
+	
+	demodulated_samples_queue.enqueue(demodulated_samples);
+	
 	}
 
-	demodulated_samples_queue.enqueue(demodulated_samples);
 }
 
 void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue)
