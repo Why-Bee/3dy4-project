@@ -10,8 +10,6 @@
 import numpy as np
 import math
 
-SPS = 30
-
 def impulseResponseRootRaisedCosine(Fs, N_taps):
 
 	"""
@@ -52,11 +50,4 @@ def impulseResponseRootRaisedCosine(Fs, N_taps):
 
 if __name__ == "__main__":
 
-	# run root raised cosine with some dummy parameters and plot it 
-	import matplotlib.pyplot as plt
-	Fs = 2375*SPS
-	N_taps = 201
-	impulseResponseRRC = impulseResponseRootRaisedCosine(Fs, N_taps)
-	plt.plot(impulseResponseRRC)
-	plt.show()
-
+	pass

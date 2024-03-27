@@ -399,3 +399,169 @@ def delayBlock(input_block, state_block):
 	output_block = np.concatenate((state_block, input_block[:-len(state_block)]))
 	state_block = input_block[-len(state_block):]
 	return output_block, state_block
+
+# Clock and data recovery
+def sampling_start_adjust(block, samples_per_symbol):
+    abs_min_idx = 0
+    abs_min = abs(block[abs_min_idx])
+    for i in range(0, len(block)-10):
+        diff = abs(block[i])
+        if diff < abs_min:
+            abs_min = diff
+            abs_min_idx = i
+
+    return ((abs_min_idx + int(samples_per_symbol/2)) % samples_per_symbol)
+
+def upsample(y, upsampling_factor):
+    if upsampling_factor == 1:
+        return y
+
+    original_size = len(y)
+    y_extended = np.zeros(original_size * upsampling_factor)
+    y_extended[::upsampling_factor] = y
+
+    return y_extended
+
+def symbol_vals_to_bits(sampling_points, offset=0):
+    bool_array = np.zeros(int(len(sampling_points)/2), dtype=bool)
+    hh_count = 0
+    ll_count = 0
+    for i in range(0, len(sampling_points)-(offset+1), 2):
+        if sampling_points[i+offset] == 0 and \
+            sampling_points[i+offset+1] == 0:
+            print("DOUBLE ZERO WARNING")
+            bool_array[int(i/2)] = bool(0)
+
+        if sampling_points[i+offset] >= 0 and \
+            sampling_points[i+offset+1] <= 0: #case HL
+            bool_array[int(i/2)] = bool(1)
+
+        elif sampling_points[i+offset] <= 0 and \
+            sampling_points[i+offset+1] >= 0: #case LH
+            bool_array[int(i/2)] = bool(0)
+
+        elif sampling_points[i+offset] < 0 and \
+            sampling_points[i+offset+1] < 0: #case LL
+            if (sampling_points[i+offset] < sampling_points[i+offset+1]): # weak LH
+                bool_array[int(i/2)] = bool(0)
+            elif (sampling_points[i+offset] >= sampling_points[i+offset+1]): # weak HL
+                bool_array[int(i/2)] = bool(1)
+            ll_count+=1
+
+        elif sampling_points[i+offset] > 0 and \
+            sampling_points[i+offset+1] > 0: #case HH
+            if (sampling_points[i+offset] > sampling_points[i+offset+1]): # weak HL
+                bool_array[int(i/2)] = bool(1)
+            elif (sampling_points[i+offset] <= sampling_points[i+offset+1]): # weak LH
+                bool_array[int(i/2)] = bool(0)
+            hh_count+=1
+            
+    return bool_array, ll_count, hh_count
+
+def differential_decode(bool_array):
+    decoded = np.empty(len(bool_array)-1, dtype=bool)
+    for i in range(0, len(bool_array)-1):
+        decoded[i] = bool_array[i] ^ bool_array[i-1]
+    return decoded
+
+parity_matrix = np.array(
+[[1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+ [0, 1, 0, 0, 0, 0, 0, 0, 0, 0], 
+ [0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+ [0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+ [0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+ [0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+ [0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+ [0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+ [0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+ [0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+ [1, 0, 1, 1, 0, 1, 1, 1, 0, 0],
+ [0, 1, 0, 1, 1, 0, 1, 1, 1, 0],
+ [0, 0, 1, 0, 1, 1, 0, 1, 1, 1],
+ [1, 0, 1, 0, 0, 0, 0, 1, 1, 1],
+ [1, 1, 1, 0, 0, 1, 1, 1, 1, 1],
+ [1, 1, 0, 0, 0, 1, 0, 0, 1, 1],
+ [1, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+ [1, 1, 0, 1, 1, 1, 0, 1, 1, 0],
+ [0, 1, 1, 0, 1, 1, 1, 0, 1, 1],
+ [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+ [1, 1, 1, 1, 0, 1, 1, 1, 0, 0],
+ [0, 1, 1, 1, 1, 0, 1, 1, 1, 0],
+ [0, 0, 1, 1, 1, 1, 0, 1, 1, 1],
+ [1, 0, 1, 0, 1, 0, 0, 1, 1, 1],
+ [1, 1, 1, 0, 0, 0, 1, 1, 1, 1],
+ [1, 1, 0, 0, 0, 1, 1, 0, 1, 1]], dtype=bool)
+
+def concat_bool_arr(bool_arr):
+    # Convert boolean array to integer
+    result = 0
+    for bit in bool_arr:
+        result = (result << 1) | int(bit)
+    return result
+
+def multiply_parity(matrix1):
+    if matrix1.ndim != 1:
+        raise ValueError("matrix1 must be a 1D array")
+    
+    result = np.zeros(parity_matrix.shape[1], dtype=bool)
+    
+    for j in range(parity_matrix.shape[1]):
+        for k in range(parity_matrix.shape[0]):
+            result[j] ^= matrix1[k] & parity_matrix[k, j]
+    
+    return concat_bool_arr(result)
+
+def matches_syndrome(ten_bit_val):
+    les_syndromes = {
+        'A': 0b1111011000,
+        'B': 0b1111010100,
+        'C': 0b1001011100,
+        'Cprime': 0b1111001100,
+        'D': 0b1001011000
+    }
+
+    for syndrome, value in les_syndromes.items():
+        if ten_bit_val == value:
+            return True, syndrome
+        
+    return False, None
+
+def find_frame_start(bitstream, text):
+    last_start_idx = 0
+    once = 1
+    next_up = 0
+    missed = 0
+    # text = ''
+    check_len = 26
+    for start_idx in range(0, len(bitstream)-check_len):
+        twenty_six_bit_value = bitstream[start_idx:start_idx+check_len]
+        ten_bit_code = multiply_parity(twenty_six_bit_value)
+        is_valid, syndrome = matches_syndrome(ten_bit_code)
+        if is_valid:
+            if (start_idx-last_start_idx) < check_len:
+                if once:
+                    once = 0
+                else:
+                    missed +=1
+                    print("missed one")
+                    
+            # print(f"{start_idx} {start_idx-last_start_idx} found the syndrome: ", syndrome)
+            last_start_idx = start_idx
+
+            if syndrome == 'A':
+                print(f"PI: {hex(concat_bool_arr(twenty_six_bit_value[:16]))}")
+            if syndrome == 'B':
+                print(f"PTY: {(concat_bool_arr(twenty_six_bit_value[6:11]))}")
+                next_up = concat_bool_arr(twenty_six_bit_value[:5])
+                print(f"Next: {next_up}")
+            if syndrome == 'C':
+                if next_up == 4:
+                    text += chr(concat_bool_arr(twenty_six_bit_value[:8]))
+                    text += chr(concat_bool_arr(twenty_six_bit_value[8:16]))
+            if syndrome == 'D':
+                if next_up == 4:
+                    text += chr(concat_bool_arr(twenty_six_bit_value[:8]))
+                    text += chr(concat_bool_arr(twenty_six_bit_value[8:16]))
+    print("text:", text)
+    return text
+    # print("missed:", missed)
