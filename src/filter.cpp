@@ -252,3 +252,10 @@ void convolveFIRdecimIQ(std::vector<float> &i_out,
     }
 }
 
+void delayBlock(const std::vector<float>& x, std::vector<float>& y, std::vector<float>& state) {
+    y.resize(x.size());
+	std::copy(state.begin(), state.end(), y.begin());
+    std::copy(x.begin(), x.end() - state.size(), y.begin() + state.size());
+    state.assign(x.end() - state.size(), x.end());
+}
+

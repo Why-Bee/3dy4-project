@@ -16,6 +16,8 @@ Ontario, Canada
 #include "demod.h"
 #include "config.h"
 #include "safequeue.h"
+#include "pll.h"
+
 #include <limits>
 #include <unordered_map>
 #include <thread>
@@ -36,6 +38,22 @@ constexpr float kMonoSampleFrequency = 240e3;
 constexpr float kMonoCutoffFrequency = 16e3;
 constexpr unsigned short int kMonoNumTaps = 101;
 constexpr int kMonoDecimation = 5;
+
+constexpr float kStereoBpfFcHigh = 54e3;
+constexpr float kStereoBpfFcLow = 22e3;
+constexpr float kStereoBpfNumTaps = 101;
+constexpr float kStereoDecimation = kMonoDecimation;
+
+constexpr float kStereoLpfFc = 38e3;
+constexpr float kStereoLpfNumTaps = 101;
+constexpr float kMixerGain = 2.0;
+
+constexpr float kPilotToneFrequency = 19e3;
+constexpr float kPilotNcoScale = 2.0;
+constexpr float kPilotBpfFcHigh = 19.5e3;
+constexpr float kPilotBpfFcLow = 18.5e3;
+constexpr float kPilotBpfNumTaps = 101;
+constexpr float kIQfactor = 2.0;
 
 constexpr uint16_t kMaxUint14 = 0x3FFF;
 
@@ -142,16 +160,61 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 
 void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue)
 {
+
+	static const size_t block_size = config_map.at(mode).block_size;
+
 	std::vector<float> mono_coeffs;
 	std::vector<float> mono_state(kMonoNumTaps-1, 0.0);
 	std::vector<float> float_audio_data;
 
+	// Stereo related:
+	std::vector<float> mono_lpf_state(kMonoNumTaps-1, 0.0);
+	std::vector<float> apf_state(static_cast<int>((kStereoLpfNumTaps-1)/2), 0.0);
+
+	std::vector<float> pilot_bpf_state(kPilotBpfNumTaps-1, 0.0);
+
+	std::vector<float> stereo_bpf_state(kStereoBpfNumTaps-1, 0.0);
+	std::vector<float> stereo_lpf_state(kStereoLpfNumTaps-1, 0.0);
+
+	PllState pll_state = PllState();
+
+	std::vector<float> mono_lpf_coeffs;
+	std::vector<float> stereo_bpf_coeffs;
+	std::vector<float> stereo_lpf_coeffs;
+	std::vector<float> pilot_bpf_coeffs;
+
+	std::vector<float> demodulated_samples_delayed(block_size/(kIQfactor*kRfDecimation), 0.0);
+
+	std::vector<float> pilot_filtered(block_size/(kIQfactor*kRfDecimation), 0.0);
+	std::vector<float> stereo_bpf_filtered(block_size/(kIQfactor*kRfDecimation), 0.0);
+	std::vector<float> stereo_mixed(block_size/(kIQfactor*kRfDecimation), 0.0);
+	std::vector<float> nco_out; // block_size/kRfDecimation + 1
+	std::vector<float> stereo_lpf_filtered(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
+
+	std::vector<float> float_mono_data;
+
+	std::vector<float> float_stereo_left_data(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
+	std::vector<float> float_stereo_right_data(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
+
+
+	// using mono coeffs as mono lpf coeffs
 	impulseResponseLPF(kMonoSampleFrequency, 
 					   kMonoCutoffFrequency, 
 					   kMonoNumTaps,
 					   mono_coeffs,
 					   config_map.at(mode).audio.upsample);
-					   
+
+	impulseResponseLPF(kMonoSampleFrequency,
+					   kStereoLpfFc,
+					   kStereoLpfNumTaps,
+					   stereo_lpf_coeffs);	
+
+	impulseResponseBPF(kMonoSampleFrequency,
+					   kPilotBpfFcLow,
+					   kPilotBpfFcHigh,
+					   kPilotBpfNumTaps,
+					   pilot_bpf_coeffs);
+		   
 	while (1) {
 		std::vector<float> demodulated_samples = demodulated_samples_queue.dequeue();
 	
@@ -160,13 +223,73 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 							mono_coeffs,
 							mono_state,
 							config_map.at(mode).audio.downsample,
-							config_map.at(mode).audio.upsample);		 
+							config_map.at(mode).audio.upsample);	
+			 
+		if (channel == 1) {
+			delayBlock(demodulated_samples,
+					demodulated_samples_delayed,
+					apf_state);
 
-		std::vector<short int> s16_audio_data(float_audio_data.size());
-		for (unsigned int k = 0; k < float_audio_data.size(); k++) {
-				if (std::isnan(float_audio_data[k])) s16_audio_data[k] = 0;
-				else s16_audio_data[k] = static_cast<short int>(float_audio_data[k]*(kMaxUint14+1));
+			convolveFIR2(float_mono_data, 
+						demodulated_samples_delayed,
+						mono_coeffs, 
+						mono_lpf_state,
+						kMonoDecimation);	
+
+			convolveFIR(stereo_bpf_filtered,
+						demodulated_samples,
+						stereo_bpf_coeffs,
+						stereo_bpf_state);
+			
+			convolveFIR(pilot_filtered,
+						demodulated_samples,
+						pilot_bpf_coeffs,
+						pilot_bpf_state);
+
+			fmPll(pilot_filtered,
+				kPilotToneFrequency,
+				kMonoSampleFrequency,
+				pll_state,
+				kPilotNcoScale,
+				nco_out);
+			
+			// Mixer @copyright Samuel Parent
+			for (size_t i = 0; i < stereo_bpf_filtered.size(); i++) {
+				stereo_mixed[i] = kMixerGain*nco_out[i]*stereo_bpf_filtered[i];
+			}
+
+			convolveFIR2(stereo_lpf_filtered,
+						stereo_mixed,
+						stereo_lpf_coeffs,
+						stereo_lpf_state,
+						kStereoDecimation);
+
+			for (size_t i = 0; i < stereo_lpf_filtered.size(); i++) {
+				float_stereo_left_data[i] = float_mono_data[i] + stereo_lpf_filtered[i];
+				float_stereo_right_data[i] = float_mono_data[i] - stereo_lpf_filtered[i];
+			}
 		}
+
+		if (channel == 0) { // write mono data
+			std::vector<short int> s16_audio_data(float_audio_data.size());
+			for (unsigned int k = 0; k < float_audio_data.size(); k++) {
+					if (std::isnan(float_audio_data[k])) s16_audio_data[k] = 0;
+					else s16_audio_data[k] = static_cast<short int>(float_audio_data[k]*(kMaxUint14+1));
+			}
+		}
+		else if (channel == 1) { // write stereo data
+			std::vector<short int> s16_audio_data(float_stereo_right_data.size()*2);
+			for (unsigned int k = 0; k < float_stereo_right_data.size(); k++){
+				if (std::isnan(float_stereo_right_data[k]) || std::isnan(float_stereo_left_data[k])) {
+					s16_audio_data[2*k] = 0;
+					s16_audio_data[2*k + 1] = 0;
+				} else {
+					s16_audio_data[2*k] = static_cast<short int>(float_stereo_right_data[k]*(kMaxUint14+1));
+					s16_audio_data[2*k + 1] = static_cast<short int>(float_stereo_left_data[k]*(kMaxUint14+1));
+				}
+			}
+		}
+
 		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
 	}
 }
