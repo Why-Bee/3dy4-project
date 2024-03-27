@@ -61,7 +61,7 @@ const std::unordered_map<uint8_t, Config> config_map = {
 	{.mode=0, {.block_size=76800, .rf_downsample=10, AudioConfig{.upsample=  1, .downsample=   5}, RdsConfig{.upsample=247, .downsample=1920, .sps=13}}},
 	{.mode=1, {.block_size=86400, .rf_downsample= 6, AudioConfig{.upsample=  1, .downsample=  12}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0}}},
 	{.mode=2, {.block_size=96000, .rf_downsample=10, AudioConfig{.upsample=147, .downsample= 800}, RdsConfig{.upsample= 19, .downsample=  64, .sps=30}}},
-	{.mode=3, {.block_size=57600, .rf_downsample= 9, AudioConfig{.upsample=441, .downsample=3200}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0}}},
+	{.mode=3, {.block_size=115200, .rf_downsample= 9, AudioConfig{.upsample=441, .downsample=3200}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0}}},
 };
 
 /* GLOBAL VARIABLES */
