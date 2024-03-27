@@ -32,17 +32,14 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
 constexpr unsigned short int kRfNumTaps = 101;
-constexpr int kRfDecimation = 9;
 
 constexpr float kMonoSampleFrequency = 240e3;
 constexpr float kMonoCutoffFrequency = 16e3;
 constexpr unsigned short int kMonoNumTaps = 101;
-constexpr int kMonoDecimation = 5;
 
 constexpr float kStereoBpfFcHigh = 54e3;
 constexpr float kStereoBpfFcLow = 22e3;
 constexpr float kStereoBpfNumTaps = 101;
-constexpr float kStereoDecimation = kMonoDecimation;
 
 constexpr float kStereoLpfFc = 38e3;
 constexpr float kStereoLpfNumTaps = 101;
@@ -90,6 +87,7 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 
 {
 	static const size_t block_size = config_map.at(mode).block_size;
+	static const short int rf_decimation = config_map.at(mode).rf_downsample;
 
 	std::vector<float> rf_state_i(kRfNumTaps-1, 0.0);
 	std::vector<float> rf_state_q(kRfNumTaps-1, 0.0);
@@ -138,13 +136,13 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 					 raw_bin_data_i,
 					 rf_coeffs, 
 					 rf_state_i,
-					 config_map.at(mode).rf_downsample);
+					 rf_decimation);
 
 		convolveFIR2(pre_fm_demod_q, 
 					 raw_bin_data_q,
 					 rf_coeffs, 
 					 rf_state_q,
-					 config_map.at(mode).rf_downsample);
+					 rf_decimation);
 
 		fmDemodulator(pre_fm_demod_i, 
 					  pre_fm_demod_q, 
@@ -162,6 +160,9 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 {
 
 	static const size_t block_size = config_map.at(mode).block_size;
+	static const short int rf_decimation = config_map.at(mode).rf_downsample;
+	static const short int audio_decimation = config_map.at(mode).audio.downsample;
+	static const short int audio_upsample = config_map.at(mode).audio.upsample;
 
 	std::vector<float> mono_coeffs;
 	std::vector<float> mono_state(kMonoNumTaps-1, 0.0);
@@ -183,18 +184,18 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 	std::vector<float> stereo_lpf_coeffs;
 	std::vector<float> pilot_bpf_coeffs;
 
-	std::vector<float> demodulated_samples_delayed(block_size/(kIQfactor*kRfDecimation), 0.0);
+	std::vector<float> demodulated_samples_delayed(block_size/(kIQfactor*rf_decimation), 0.0);
 
-	std::vector<float> pilot_filtered(block_size/(kIQfactor*kRfDecimation), 0.0);
-	std::vector<float> stereo_bpf_filtered(block_size/(kIQfactor*kRfDecimation), 0.0);
-	std::vector<float> stereo_mixed(block_size/(kIQfactor*kRfDecimation), 0.0);
-	std::vector<float> nco_out; // block_size/kRfDecimation + 1
-	std::vector<float> stereo_lpf_filtered(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
+	std::vector<float> pilot_filtered(block_size/(kIQfactor*rf_decimation), 0.0);
+	std::vector<float> stereo_bpf_filtered(block_size/(kIQfactor*rf_decimation), 0.0);
+	std::vector<float> stereo_mixed(block_size/(kIQfactor*rf_decimation), 0.0);
+	std::vector<float> nco_out; // block_size/rf_decimation + 1
+	std::vector<float> stereo_lpf_filtered(block_size/(kIQfactor*rf_decimation*audio_decimation), 0.0);
 
 	std::vector<float> float_mono_data;
 
-	std::vector<float> float_stereo_left_data(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
-	std::vector<float> float_stereo_right_data(block_size/(kIQfactor*kRfDecimation*kStereoDecimation), 0.0);
+	std::vector<float> float_stereo_left_data(block_size/(kIQfactor*rf_decimation*audio_decimation), 0.0);
+	std::vector<float> float_stereo_right_data(block_size/(kIQfactor*rf_decimation*audio_decimation), 0.0);
 
 
 	// using mono coeffs as mono lpf coeffs
@@ -202,13 +203,19 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 					   kMonoCutoffFrequency, 
 					   kMonoNumTaps,
 					   mono_coeffs,
-					   config_map.at(mode).audio.upsample);
+					   audio_upsample);
 
 	impulseResponseLPF(kMonoSampleFrequency,
 					   kStereoLpfFc,
 					   kStereoLpfNumTaps,
 					   stereo_lpf_coeffs);	
 
+	impulseResponseBPF(kMonoSampleFrequency,
+					kStereoBpfFcLow,
+					kStereoBpfFcHigh,
+					kStereoBpfNumTaps,
+					stereo_bpf_coeffs);
+	
 	impulseResponseBPF(kMonoSampleFrequency,
 					   kPilotBpfFcLow,
 					   kPilotBpfFcHigh,
@@ -222,8 +229,8 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 							demodulated_samples,
 							mono_coeffs,
 							mono_state,
-							config_map.at(mode).audio.downsample,
-							config_map.at(mode).audio.upsample);	
+							audio_decimation,
+							audio_upsample);	
 			 
 		if (channel == 1) {
 			delayBlock(demodulated_samples,
@@ -234,7 +241,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 						demodulated_samples_delayed,
 						mono_coeffs, 
 						mono_lpf_state,
-						kMonoDecimation);	
+						audio_decimation);	
 
 			convolveFIR(stereo_bpf_filtered,
 						demodulated_samples,
@@ -262,7 +269,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 						stereo_mixed,
 						stereo_lpf_coeffs,
 						stereo_lpf_state,
-						kStereoDecimation);
+						audio_decimation);
 
 			for (size_t i = 0; i < stereo_lpf_filtered.size(); i++) {
 				float_stereo_left_data[i] = float_mono_data[i] + stereo_lpf_filtered[i];
