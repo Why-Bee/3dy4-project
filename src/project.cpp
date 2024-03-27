@@ -29,6 +29,7 @@ Ontario, Canada
 
 void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
 void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
+void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
 
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
@@ -52,6 +53,17 @@ constexpr float kPilotBpfFcHigh = 19.5e3;
 constexpr float kPilotBpfFcLow = 18.5e3;
 constexpr float kPilotBpfNumTaps = 101;
 constexpr float kIQfactor = 2.0;
+
+constexpr float kRDSBpfFcHigh = 60e3;
+constexpr float kRDSBpfFcLow = 54e3;
+constexpr float kRDSBpfNumTaps = 101;
+constexpr float kRDSLpfFc = 3e3;
+constexpr float kRDSLpfNumTaps = 101;
+constexpr float kRDSRrcNumTaps = 151;
+constexpr float kRDSCarrierFreq = 114e3;
+constexpr float kRDSSquaredBpfFcHigh = 114.5e3;
+constexpr float kRDSSquaredBpfFcLow = 113.5e3;
+constexpr float kRDSSquaredBpfNumTaps = 101;
 
 constexpr uint16_t kMaxUint14 = 0x3FFF;
 
@@ -317,5 +329,20 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 		// std::cerr << "Audio CPU: " << cpu_id << std::endl;
 
 	}
+}
+
+void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_queue)
+{
+	static const size_t block_size = config_map.at(mode).block_size;
+	static const int rds_upsample = config_map.at(mode).rds.upsample;
+	static const int rds_decim = config_map.at(mode).rds.downsample;
+	static const int rds_sps = config_map.at(mode).rds.sps;
+
+	std::vector<float> rds_bpf_coeffs;
+	std::vector<float> rds_lpf_coeffs;
+	std::vector<float> rds_squared_bpf_coeffs;
+	std::vector<float> rds_rrc_coeffs;
+
+	std::vector<float> 
 }
 

@@ -284,16 +284,6 @@ def logVector(filename: str, data):
     # Save the structured array to a .dat file
     np.savetxt(f'../data/{filename}.dat', structured_data, fmt='%d\t%.8e', delimiter='\t', header='x_axis\ty_axis', comments='')
 
-if __name__ == "__main__":
-    Fs = 240e3
-    Fb = 22e3
-    Fe = 54e3
-    num_taps = 101
-
-    bp_coeffs = bpFirwin(Fs, Fb, Fe, num_taps)
-
-    logVector("py_firwin_bp", bp_coeffs)
-
 
 def fmPll(pllIn, 
           freq, 
@@ -400,7 +390,7 @@ def delayBlock(input_block, state_block):
     state_block = input_block[-len(state_block):]
     return output_block, state_block
 
-# Clock and data recovery
+# TODO Clock and data recovery
 def sampling_start_adjust(block, samples_per_symbol):
     abs_min_idx = 0
     abs_min = abs(block[abs_min_idx])
@@ -422,7 +412,7 @@ def upsample(y, upsampling_factor):
 
     return y_extended
 
-def symbol_vals_to_bits(sampling_points, offset, last_value_state):
+def symbol_vals_to_bits(sampling_points, offset, last_value_state): #TODO
     bool_array = np.zeros(int(len(sampling_points)/2), dtype=bool)
     hh_count = 0
     ll_count = 0
@@ -466,13 +456,13 @@ def symbol_vals_to_bits(sampling_points, offset, last_value_state):
             
     return bool_array, ll_count, hh_count
 
-def differential_decode(bool_array,):
+def differential_decode(bool_array,): 
     decoded = np.empty(len(bool_array)-1, dtype=bool)
     for i in range(0, len(bool_array)-1):
         decoded[i] = bool_array[i] ^ bool_array[i-1]
     return decoded
 
-def differential_decode_stateful(bool_array, last_val_state):
+def differential_decode_stateful(bool_array, last_val_state): # TODO
     decoded = np.empty(len(bool_array)-1, dtype=bool)
     decoded[0] = last_val_state ^ bool_array[0]
     for i in range(1, len(bool_array)-1):
@@ -507,14 +497,14 @@ parity_matrix = np.array(
  [1, 1, 1, 0, 0, 0, 1, 1, 1, 1],
  [1, 1, 0, 0, 0, 1, 1, 0, 1, 1]], dtype=bool)
 
-def concat_bool_arr(bool_arr):
+def concat_bool_arr(bool_arr): # TODO
     # Convert boolean array to integer
     result = 0
     for bit in bool_arr:
         result = (result << 1) | int(bit)
     return result
 
-def multiply_parity(matrix1):
+def multiply_parity(matrix1): # TODO
     if matrix1.ndim != 1:
         raise ValueError("matrix1 must be a 1D array")
     
@@ -526,8 +516,8 @@ def multiply_parity(matrix1):
     
     return concat_bool_arr(result)
 
-def matches_syndrome(ten_bit_val):
-    les_syndromes = {
+def matches_syndrome(ten_bit_val): # TODO
+    les_syndromes = { # flip this TODO
         'A': 0b1111011000,
         'B': 0b1111010100,
         'C': 0b1001011100,
@@ -541,7 +531,7 @@ def matches_syndrome(ten_bit_val):
         
     return False, None
 
-def find_frame_start(bitstream, text):
+def find_frame_start(bitstream, text): 
     last_start_idx = 0
     once = 1
     next_up = 0
@@ -585,7 +575,7 @@ def recover_bitstream(sampling_points,
                       bitstream_score_0, 
                       bitstream_score_1,
                       last_value_state,
-                      bitsteam_select_thresh=20):
+                      bitsteam_select_thresh=20): # TODO
     if bitstream_select == 0:
         bitstream, ll_count0, hh_count0 = symbol_vals_to_bits(sampling_points, 0, last_value_state)
     elif bitstream_select == 1:
