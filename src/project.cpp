@@ -78,14 +78,14 @@ int main(int argc, char* argv[])
 	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue));
 	cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(0, &cpuset);
+    CPU_SET(2, &cpuset);
     pthread_setaffinity_np(rf_processing_thread.native_handle(), 
 						   sizeof(cpu_set_t), 
 						   &cpuset);
 
 	std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue));
 	CPU_ZERO(&cpuset);
-    CPU_SET(1, &cpuset);
+    CPU_SET(3, &cpuset);
 	pthread_setaffinity_np(audio_consumer_thread.native_handle(), 
 						   sizeof(cpu_set_t), 
 						   &cpuset);
@@ -136,8 +136,8 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 			std::cerr << "End of input stream reached" << std::endl;
 			exit(1);
 		}
-
-		std::cerr << "Read block " << block_id << std::endl;
+		auto cpu_id = sched_getcpu();
+		std::cerr << "Read block " << block_id << ", CPU: " << cpu_id << std::endl;
 
 		// DO NOT RESIZE THESE
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
@@ -312,6 +312,10 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 		}
 
 		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
+
+		auto cpu_id = sched_getcpu();
+		std::cerr << "Audio CPU: " << cpu_id << std::endl;
+
 	}
 }
 
