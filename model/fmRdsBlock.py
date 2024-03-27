@@ -18,7 +18,8 @@ import math
 # use fmDemodArctan and fmPlotPSD
 from fmSupportLib import fmDemodArctan, fmPlotPSD, own_lfilter, lpCoeff, custom_fm_demod, \
 	  logVector, bpFirwin, fmPll, delayBlock, sampling_start_adjust, upsample, symbol_vals_to_bits, \
-	  differential_decode, multiply_parity, matches_syndrome, find_frame_start
+	  differential_decode, multiply_parity, matches_syndrome, find_frame_start, recover_bitstream, \
+      differential_decode_stateful
 from fmRRC import impulseResponseRootRaisedCosine
 
 ################### END IMPORTS ####################################
@@ -69,13 +70,15 @@ elif mode == 2:
 else:
 	print("INVALID MODE", mode)
 	exit(1)
-    
+	
 rds_decim = rds_downsampling_factor/rds_upsampling_factor
 
 sampling_start_offset = 0
 
 num_blocks_for_pll_tuning = 20
 num_blocks_for_cdr = 10
+
+samp_pts_aggr_blocks = 4
 
 bitstream_select = None
 bitstream_score_0 = 0
@@ -116,8 +119,12 @@ pll_state_feedbackQ_q =  0.0
 pll_state_trigOffset_q =  0
 pll_state_lastNco_q =  1.0
 
+diff_decode_state = 0
+
 audio_data = np.array([])
-sampling_points_aggregated = np.array([])
+sampling_points_aggr = np.array([])
+
+block_aggr_counter = 0
 
 ################### END STATE VARIABLES ####################################
 
@@ -161,7 +168,7 @@ if __name__ == "__main__":
 	num_iter = len(iq_data) // block_size
 	
 	for block_count in range(0, num_iter):
-		# print('Processing block ' + str(block_count))
+		print('Processing block ' + str(block_count))
 
 ################### END GET BLOCK ####################################
 ################### RF FRONT ####################################
@@ -238,7 +245,7 @@ if __name__ == "__main__":
 		rds_mixed = 2 * rds_filt_delayed * ncoOut_inPhase[:-1]
 
 		rds_mixed_lfiltered, rds_filt_mixed_state_lpf = signal.lfilter(rds_lpf_coeff, \
-									    1.0, rds_mixed, zi=rds_filt_mixed_state_lpf )
+										1.0, rds_mixed, zi=rds_filt_mixed_state_lpf )
 
 		rds_upsampled = upsample(rds_mixed_lfiltered, rds_upsampling_factor)
 
@@ -252,62 +259,45 @@ if __name__ == "__main__":
 
 ################### END RDS DATA DEMODULATION ####################################
 ################### CLOCK AND DATA RECOVERY ####################################
+		
 		if (block_count < num_blocks_for_pll_tuning+num_blocks_for_cdr):
 			sampling_start_offset += sampling_start_adjust(rds_rrcfiltered, samples_per_symbol)
 			continue
 		elif (block_count == num_blocks_for_pll_tuning+num_blocks_for_cdr):
 			sampling_start_offset = sampling_start_offset//num_blocks_for_cdr
 			print("sampling start offset: ", sampling_start_offset)
-		# if (block_count == 200):
-		# 	sampling_points_graphing = upsample(np.ones(symbols_per_block), samples_per_symbol)[:-(sampling_start_offset)]
-		# 	sampling_points_graphing = np.concatenate((np.zeros(sampling_start_offset), sampling_points_graphing))
-		# 	sampling_points_graphing = sampling_points_graphing * rds_rrcfiltered
+		if (block_count == 200):
+			sampling_points_graphing = upsample(np.ones(symbols_per_block), samples_per_symbol)[:-(sampling_start_offset)]
+			sampling_points_graphing = np.concatenate((np.zeros(sampling_start_offset), sampling_points_graphing))
+			sampling_points_graphing = sampling_points_graphing * rds_rrcfiltered
 
-		# 	plt.plot(sampling_points_graphing)
-		# 	plt.plot(rds_rrcfiltered)
-		# 	plt.show() 
+			plt.plot(sampling_points_graphing)
+			plt.plot(rds_rrcfiltered)
+			plt.show() 
 
 		sampling_points = rds_rrcfiltered[sampling_start_offset::samples_per_symbol]
 
-		sampling_points_aggregated = np.concatenate((sampling_points_aggregated, sampling_points))
-		if block_count % 311 != 0:
-			if block_count % 311 == 1 and block_count != 1:
-				sampling_points_aggregated = sampling_points
+		if block_aggr_counter == 0:
+			sampling_points_aggr = sampling_points
+		elif block_aggr_counter > 0:
+			sampling_points_aggr = np.concatenate((sampling_points_aggr, sampling_points))
+		if block_aggr_counter < (samp_pts_aggr_blocks-1):
+			block_aggr_counter+=1
 			continue
+		
+		block_aggr_counter = 0
 
 ################### END CLOCK AND DATA RECOVERY ####################################
 ################### RECOVER BITSTREAM ####################################
-		if bitstream_select == None:
-			bitstream0, ll_count0, hh_count0 = symbol_vals_to_bits(sampling_points_aggregated, 0)
-			bitstream1, ll_count1, hh_count1 = symbol_vals_to_bits(sampling_points_aggregated, 1)
-
-			print(f"0: LL count: {ll_count0}, HH count: {hh_count0}")
-			print(f"1: LL count: {ll_count1}, HH count: {hh_count1}")
-
-			# pick the right bitstream
-			if (ll_count0+hh_count0) < (ll_count1+hh_count1):
-				bitstream_score_0 += 1
-				bitstream_score_1 -= 1
-				if bitstream_score_0 >= bitsteam_select_thresh:
-					print(f"SELECTING BITSTREAM 0: score0={bitstream_score_0}, score1={bitstream_score_1}")
-					bitstream_select = 0
-					bitstream  = bitstream0
-			else:
-				bitstream  = bitstream1
-				bitstream_score_1 += 1
-				bitstream_score_0 -= 1
-				if bitstream_score_1 >= bitsteam_select_thresh:
-					print(f"SELECTING BITSTREAM 1: score0={bitstream_score_0}, score1={bitstream_score_1}")
-					bitstream_select = 1
-		elif bitstream_select == 1:
-			bitstream, ll_count1, hh_count1 = symbol_vals_to_bits(sampling_points_aggregated, 1)
-		elif bitstream_select == 0:
-			bitstream, ll_count0, hh_count0 = symbol_vals_to_bits(sampling_points_aggregated, 0)
+	
+		bitstream, bitstream_select, bitstream_score_0, bitstream_score_1, bitstrea_state = recover_bitstream(
+			sampling_points_aggr, bitstream_select, bitstream_score_0, bitstream_score_1, bitstrea_state, bitsteam_select_thresh
+		)
 
 ################### END RECOVER BITSTREAM ####################################
 ################### DIFFERENTIAL DECODING ####################################
 
-		bitstream_decoded = differential_decode(bitstream)
+		bitstream_decoded, diff_decode_state = differential_decode_stateful(bitstream, diff_decode_state)
 
 ################### END DIFFERENTIAL DECODING ####################################
 ################### FRAME SYNCHRONIZATION ####################################
