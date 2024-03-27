@@ -25,6 +25,7 @@ Ontario, Canada
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <pthread.h>
 
 void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
 void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
@@ -75,7 +76,19 @@ int main(int argc, char* argv[])
 	SafeQueue<std::vector<float>> demodulated_samples_queue;
 
 	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue));
+	cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(0, &cpuset);
+    pthread_setaffinity_np(rf_processing_thread.native_handle(), 
+						   sizeof(cpu_set_t), 
+						   &cpuset);
+
 	std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue));
+	CPU_ZERO(&cpuset);
+    CPU_SET(1, &cpuset);
+	pthread_setaffinity_np(audio_consumer_thread.native_handle(), 
+						   sizeof(cpu_set_t), 
+						   &cpuset);
 
 	rf_processing_thread.join();
 	audio_consumer_thread.join();
