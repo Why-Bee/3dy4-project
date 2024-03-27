@@ -57,15 +57,16 @@ constexpr uint16_t kMaxUint14 = 0x3FFF;
 
 #define DEBUG_MODE 0U
 
+/* GLOBAL VARIABLES */
+
 const std::unordered_map<uint8_t, Config> config_map = {
-	{.mode=0, {.block_size=76800, .rf_downsample=10, AudioConfig{.upsample=  1, .downsample=   5}, RdsConfig{.upsample=247, .downsample=1920, .sps=13}}},
-	{.mode=1, {.block_size=86400, .rf_downsample= 6, AudioConfig{.upsample=  1, .downsample=  12}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0}}},
-	{.mode=2, {.block_size=96000, .rf_downsample=10, AudioConfig{.upsample=147, .downsample= 800}, RdsConfig{.upsample= 19, .downsample=  64, .sps=30}}},
+	{.mode=0, {.block_size= 76800, .rf_downsample=10, AudioConfig{.upsample=  1, .downsample=   5}, RdsConfig{.upsample=247, .downsample=1920, .sps=13}}},
+	{.mode=1, {.block_size= 86400, .rf_downsample= 6, AudioConfig{.upsample=  1, .downsample=  12}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0}}},
+	{.mode=2, {.block_size= 96000, .rf_downsample=10, AudioConfig{.upsample=147, .downsample= 800}, RdsConfig{.upsample= 19, .downsample=  64, .sps=30}}},
 	{.mode=3, {.block_size=115200, .rf_downsample= 9, AudioConfig{.upsample=441, .downsample=3200}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0}}},
 };
 
-/* GLOBAL VARIABLES */
-int mode = 0;    // mode 0, 1, 2, 3. Default is 0
+int mode    = 0; // mode 0, 1, 2, 3. Default is 0
 int channel = 0; // 1 for mono, 2 for stereo (rds runs in stereo)
 
 int main(int argc, char* argv[])
@@ -139,7 +140,6 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 		auto cpu_id = sched_getcpu();
 		std::cerr << "Read block " << block_id << ", CPU: " << cpu_id << std::endl;
 
-		// DO NOT RESIZE THESE
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
 			raw_bin_data_i[i>>1] = raw_bin_data[i];
 			raw_bin_data_q[i>>1] = raw_bin_data[i+1];
@@ -211,7 +211,6 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 	std::vector<float> float_stereo_right_data(block_size*audio_upsample/(kIQfactor*rf_decimation*audio_decimation), 0.0);
 
 
-	// using mono coeffs as mono lpf coeffs
 	impulseResponseLPF(kMonoSampleFrequency, 
 					   kMonoCutoffFrequency, 
 					   kMonoNumTaps,
@@ -274,7 +273,6 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 				kPilotNcoScale,
 				nco_out);
 			
-			// Mixer @copyright Samuel Parent
 			for (size_t i = 0; i < stereo_bpf_filtered.size(); i++) {
 				stereo_mixed[i] = kMixerGain*nco_out[i]*stereo_bpf_filtered[i];
 			}
