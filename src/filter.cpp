@@ -29,6 +29,30 @@ void impulseResponseLPF(float Fs, float Fc, unsigned short int num_taps, std::ve
 	}
 }
 
+// function to compute the impulse response "h" based on the sinc function
+void impulseResponseLPF(float Fs, float Fc, unsigned short int num_taps, std::vector<float> &h, unsigned int upsampling_factor)
+{
+	// update num_taps and sampling rate to reflect upsampling factor
+	num_taps *= upsampling_factor;
+	Fs *= upsampling_factor;
+
+	// allocate memory for the impulse response
+	h.clear(); h.resize(num_taps, 0.0);
+
+	float normf = Fc / (Fs/2); // Normalize cutoff
+	for (int i = 0; i < num_taps; ++i) {
+		if (i == (num_taps - 1) / 2) {
+			h[i] = normf;
+		}
+		else{
+
+			h[i] = normf * ((std::sin(PI * normf * (i - (num_taps - 1) / 2))) / (PI * normf * (i - (num_taps - 1) / 2) ));	
+		}
+		h[i] *= pow(std::sin(i*PI/num_taps), 2) * upsampling_factor;
+	}
+}
+
+
 // function to compute the impulse response "h" for a band pass filter
 void impulseResponseBPF(float Fs, float Fb, float Fe, unsigned short int num_taps, std::vector<float> &h) 
 {
@@ -69,8 +93,7 @@ void impulseResponseRRC(float Fs, int num_taps, std::vector<float>& impulseRespo
 
 void convolveFIR2(std::vector<float> &y, std::vector<float> &x, std::vector<float> &h, std::vector<float> &zi, int decimation)
 {
-
-		y.clear(); y.resize(x.size()/decimation, 0.0);
+	y.clear(); y.resize(x.size()/decimation, 0.0);
     int decim_n;
     for (int n = 0; n < x.size(); n += decimation) {
         decim_n = n/decimation;
@@ -169,10 +192,14 @@ void downsample(std::vector<float> &y,
 		return;
 	}
 	
-	for (int i = 0; i < y.size(); i++) {
-		y[i] = y[i * decimation];
+	int index = 0;
+
+	for (int i = 0; i < y.size(); i+=decimation) {
+		y[index] = y[i];
+		index++;
 	}
 	y.resize(y.size() / decimation);
+		std::cerr << y.size() << std::endl;
 }
 
 void convolveFIRResample(std::vector<float> &y, 
@@ -188,17 +215,19 @@ void convolveFIRResample(std::vector<float> &y,
 	int phase, input_index;
     for (int n = 0; n < y.size(); n++) {
         phase = (n*decimation)%upsampling_factor;
+		// input_index = ((decimation * n) - phase) / upsampling_factor;
         for (int k = phase; k < h.size(); k += upsampling_factor){
-			input_index = static_cast<int>(n*decimation/upsampling_factor) - (k)/upsampling_factor;
+			input_index = static_cast<int>(((n*decimation)-k) / upsampling_factor);
 			if ( input_index >= 0 ) {
-				y[n] += h[k] * x[input_index] * upsampling_factor;
+				y[n] += h[k] * x[input_index];
 			} else { // take from state
-				y[n] += h[k] * zi[input_index+(zi.size())] * upsampling_factor;
+				y[n] += h[k] * zi[input_index+(zi.size())] ;
 			}
+			// input_index--;
         }
     }
-    for (int i = x.size() - zi.size(); i < x.size(); i++){
-      zi[i - x.size() + h.size()] = x[i];
+    for (int i = x.size() - zi.size(); i < x.size(); i++) {
+      zi[i - x.size() + zi.size()] = x[i];
     }
 }
 
@@ -246,3 +275,4 @@ void delayBlock(const std::vector<float>& x, std::vector<float>& y, std::vector<
     std::copy(x.begin(), x.end() - state.size(), y.begin() + state.size());
     state.assign(x.end() - state.size(), x.end());
 }
+
