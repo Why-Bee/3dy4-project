@@ -203,12 +203,12 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 	std::vector<float> stereo_bpf_filtered(block_size/(kIQfactor*rf_decimation), 0.0);
 	std::vector<float> stereo_mixed(block_size/(kIQfactor*rf_decimation), 0.0);
 	std::vector<float> nco_out; // block_size/rf_decimation + 1
-	std::vector<float> stereo_lpf_filtered(block_size/(kIQfactor*rf_decimation*audio_decimation), 0.0);
+	std::vector<float> stereo_lpf_filtered(block_size*audio_upsample/(kIQfactor*rf_decimation*audio_decimation), 0.0);
 
 	std::vector<float> float_mono_data;
 
-	std::vector<float> float_stereo_left_data(block_size/(kIQfactor*rf_decimation*audio_decimation), 0.0);
-	std::vector<float> float_stereo_right_data(block_size/(kIQfactor*rf_decimation*audio_decimation), 0.0);
+	std::vector<float> float_stereo_left_data(block_size*audio_upsample/(kIQfactor*rf_decimation*audio_decimation), 0.0);
+	std::vector<float> float_stereo_right_data(block_size*audio_upsample/(kIQfactor*rf_decimation*audio_decimation), 0.0);
 
 
 	// using mono coeffs as mono lpf coeffs
@@ -250,11 +250,12 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 					demodulated_samples_delayed,
 					apf_state);
 
-			convolveFIR2(float_mono_data, 
+			convolveFIRResample(float_mono_data, 
 						demodulated_samples_delayed,
 						mono_coeffs, 
 						mono_lpf_state,
-						audio_decimation);	
+						audio_decimation,
+						audio_upsample);	
 
 			convolveFIR(stereo_bpf_filtered,
 						demodulated_samples,
@@ -278,11 +279,12 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 				stereo_mixed[i] = kMixerGain*nco_out[i]*stereo_bpf_filtered[i];
 			}
 
-			convolveFIR2(stereo_lpf_filtered,
+			convolveFIRResample(stereo_lpf_filtered,
 						stereo_mixed,
 						stereo_lpf_coeffs,
 						stereo_lpf_state,
-						audio_decimation);
+						audio_decimation,
+						audio_upsample);
 
 			for (size_t i = 0; i < stereo_lpf_filtered.size(); i++) {
 				float_stereo_left_data[i] = float_mono_data[i] + stereo_lpf_filtered[i];
@@ -313,8 +315,8 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 
 		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
 
-		auto cpu_id = sched_getcpu();
-		std::cerr << "Audio CPU: " << cpu_id << std::endl;
+		// auto cpu_id = sched_getcpu();
+		// std::cerr << "Audio CPU: " << cpu_id << std::endl;
 
 	}
 }
