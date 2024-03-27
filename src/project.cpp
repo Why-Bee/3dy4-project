@@ -269,16 +269,17 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 				float_stereo_right_data[i] = float_mono_data[i] - stereo_lpf_filtered[i];
 			}
 		}
+		std::vector<short int> s16_audio_data;
 
 		if (channel == 0) { // write mono data
-			std::vector<short int> s16_audio_data(float_audio_data.size());
+			s16_audio_data.resize(float_audio_data.size());
 			for (unsigned int k = 0; k < float_audio_data.size(); k++) {
 					if (std::isnan(float_audio_data[k])) s16_audio_data[k] = 0;
 					else s16_audio_data[k] = static_cast<short int>(float_audio_data[k]*(kMaxUint14+1));
 			}
 		}
 		else if (channel == 1) { // write stereo data
-			std::vector<short int> s16_audio_data(float_stereo_right_data.size()*2);
+			s16_audio_data.resize(float_stereo_right_data.size()*2);
 			for (unsigned int k = 0; k < float_stereo_right_data.size(); k++){
 				if (std::isnan(float_stereo_right_data[k]) || std::isnan(float_stereo_left_data[k])) {
 					s16_audio_data[2*k] = 0;
