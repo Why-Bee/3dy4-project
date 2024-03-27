@@ -18,6 +18,7 @@ void fmPll(const std::vector<float>& pll_in,
            const float phase_adjust,
            const float norm_bandwidth) {
 
+
     float Cp = 2.666;
     float Ci = 3.555;
     float Kp = norm_bandwidth * Cp;
@@ -25,6 +26,7 @@ void fmPll(const std::vector<float>& pll_in,
     float errorI;
     float errorQ;
     float errorD;
+
     float trigArg;
 
     nco_out.clear(); nco_out.resize(pll_in.size()+1);

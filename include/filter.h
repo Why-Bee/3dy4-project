@@ -52,4 +52,8 @@ void convolveFIR2(std::vector<float> &y,
 void delayBlock(const std::vector<float>& x, 
 				std::vector<float>& y, 
 				std::vector<float>& state);
+
+void impulseResponseRRC(float Fs, 
+					    int num_taps, 
+						std::vector<float>& impulseResponseRRC);
 #endif // DY4_FILTER_H

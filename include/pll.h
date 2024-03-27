@@ -1,4 +1,3 @@
-
 #include <vector>
 #include <cmath>
 
@@ -13,6 +12,7 @@ struct PllState
         feedbackQ(0.0f),
         trigOffset(0.0f),
         lastNco(1.0f) {}
+
     float integrator = 0.0f;
     float phaseEst = 0.0f;
     float feedbackI = 1.0f;
@@ -29,3 +29,4 @@ void fmPll(const std::vector<float>& pll_in,
            std::vector<float>& nco_out,
            const float phase_adjust = 0.0,
            const float norm_bandwidth = 0.01);
+

@@ -89,9 +89,11 @@ if __name__ == "__main__":
 	state_stereo_bpf = np.zeros(stereo_bp_taps-1)
 	state_stereo_lpf = np.zeros(stereo_lp_taps-1)
 	state_pilot_bpf = np.zeros(pilot_bp_taps-1)
+
 	# state_phase = 0
 	prev_i = 0.0
 	prev_q = 0.0
+
 	state_i_custom = np.float64(0.0)
 	state_q_custom = np.float64(0.0)
 
@@ -117,6 +119,7 @@ if __name__ == "__main__":
 
 	nco_debug = np.array([])
 	pilot_debug = np.array([])
+
 
 	# if the number of samples in the last block is less than the block size
 	# it is fine to ignore the last few samples from the raw IQ file
@@ -165,6 +168,7 @@ if __name__ == "__main__":
 			logVector(f"py_pilot_filtered{block_count}", pilot_filt)
 
 
+
 		ncoOut, pll_state_integrator, pll_state_phaseEst, pll_state_trigOffset, pll_state_lastNco = fmPll(
 			pilot_filt, 
 			19e3, 
@@ -207,6 +211,7 @@ if __name__ == "__main__":
 			stereo_mixed[i] = 2*ncoOut[i] * stereo_bpf_filtered[i]
 		
 		# if block_count == 10 or block_count == 1:
+
 		# 	plt.plot(ncoOut)
 		# 	fmPlotPSD(ax0, stereo_mixed, rf_Fs/rf_decim, subfig_height[0], "ncoOut")
 		# 	plt.show()
@@ -221,6 +226,7 @@ if __name__ == "__main__":
 
 		stereo_left_block = (mono_block + stereo_block)
 		stereo_right_block = (mono_block - stereo_block)
+
 		
 		stereo_left = np.concatenate((stereo_left, (mono_block + stereo_block)))
 		stereo_right = np.concatenate((stereo_right, (mono_block - stereo_block)))
@@ -236,6 +242,7 @@ if __name__ == "__main__":
 			logVector(f"py_float_stereo_left_data{block_count}", stereo_left_block);
 			logVector(f"py_float_stereo_right_data{block_count}", stereo_right_block);
 		
+
 
 		block_count += 1
 	# loop end
