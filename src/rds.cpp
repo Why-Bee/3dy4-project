@@ -1,4 +1,5 @@
 #include <vector>
+#include <unordered_map>
 #include "rds.h"
 
 int sampling_start_adjust(const std::vector<float> &block, const int samples_per_symbol) {
@@ -97,11 +98,11 @@ uint32_t multiply_parity(const std::vector<bool>& matrix1) {
 }
 
 std::pair<bool, char> matches_syndrome(uint32_t ten_bit_val) {
-    std::map<uint32_t, char> les_syndromes = {
+    std::unordered_map<uint32_t, char> les_syndromes = {
         {0b1111011000, 'A'},
         {0b1111010100, 'B'},
         {0b1001011100, 'C'},
-        {0b1111001100, 'P'}, // Cprime
+        {0b1111001100, 'C'}, // Cprime
         {0b1001011000, 'D'}
     };
 

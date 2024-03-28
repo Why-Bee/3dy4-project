@@ -1,4 +1,5 @@
 #include <vector> 
+#include <unordered_map>
 #pragma once
 
 
@@ -32,7 +33,7 @@ const std::vector<std::vector<bool>> parity_matrix =
  {1, 1, 0, 0, 0, 1, 1, 0, 1, 1}};
 
 
-const std::map<char, char> next_syndrome_dict{{'A', 'B'}, 
+const std::unordered_map<char, char> next_syndrome_dict{{'A', 'B'}, 
                                               {'B', 'C'}, 
                                               {'C', 'D'}, 
                                               {'P', 'D'}, 

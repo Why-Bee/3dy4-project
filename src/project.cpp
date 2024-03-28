@@ -74,11 +74,11 @@ constexpr uint16_t kMaxUint14 = 0x3FFF;
 
 /* GLOBAL VARIABLES */
 
-const std::unordered_map<uint8_t, Config> config_map = {
-	{.mode=0, {.block_size= 76800, .rf_downsample=10, AudioConfig{.upsample=  1, .downsample=   5}, RdsConfig{.upsample=247, .downsample=1920, .sps=13}}},
-	{.mode=1, {.block_size= 86400, .rf_downsample= 6, AudioConfig{.upsample=  1, .downsample=  12}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0}}},
-	{.mode=2, {.block_size= 96000, .rf_downsample=10, AudioConfig{.upsample=147, .downsample= 800}, RdsConfig{.upsample= 19, .downsample=  64, .sps=30}}},
-	{.mode=3, {.block_size=115200, .rf_downsample= 9, AudioConfig{.upsample=441, .downsample=3200}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0}}},
+std::unordered_map<uint8_t, Config> config_map = {
+	{0, {.block_size= 76800, .rf_downsample=10, AudioConfig{.upsample=  1, .downsample=   5}, RdsConfig{.upsample=247, .downsample=1920, .sps=13}}},
+	{1, {.block_size= 86400, .rf_downsample= 6, AudioConfig{.upsample=  1, .downsample=  12}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0}}},
+	{2, {.block_size= 96000, .rf_downsample=10, AudioConfig{.upsample=147, .downsample= 800}, RdsConfig{.upsample= 19, .downsample=  64, .sps=30}}},
+	{3, {.block_size=115200, .rf_downsample= 9, AudioConfig{.upsample=441, .downsample=3200}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0}}},
 };
 
 int mode    = 0; // mode 0, 1, 2, 3. Default is 0
@@ -92,6 +92,9 @@ int main(int argc, char* argv[])
 	SafeQueue<std::vector<float>> demodulated_samples_queue;
 
 	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue));
+	std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue));
+
+	#ifndef __APPLE__
 	cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     CPU_SET(2, &cpuset);
@@ -99,12 +102,12 @@ int main(int argc, char* argv[])
 						   sizeof(cpu_set_t), 
 						   &cpuset);
 
-	std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue));
 	CPU_ZERO(&cpuset);
     CPU_SET(3, &cpuset);
 	pthread_setaffinity_np(audio_consumer_thread.native_handle(), 
 						   sizeof(cpu_set_t), 
 						   &cpuset);
+	#endif
 
 	rf_processing_thread.join();
 	audio_consumer_thread.join();
@@ -152,8 +155,8 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 			std::cerr << "End of input stream reached" << std::endl;
 			exit(1);
 		}
-		auto cpu_id = sched_getcpu();
-		std::cerr << "Read block " << block_id << ", CPU: " << cpu_id << std::endl;
+		// auto cpu_id = sched_getcpu();
+		std::cerr << "Read block " << block_id << std::endl;
 
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
 			raw_bin_data_i[i>>1] = raw_bin_data[i];
@@ -432,7 +435,6 @@ void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_q
 		if (nco_rds_out.size()-1 != rds_delayed.size())
 			std::cerr << "WARNING- sizing error on RDS path! NCO size: " << nco_rds_out.size() << " RDS data size: " << rds_delayed.size() << std::endl;
 
-
 		// Mixer!! credit Yash Bhatia, bhatiy1@mcmaster.ca, very cool guy, contact for licensing fees
 		for (unsigned int i = 0; i < rds_delayed.size(); i++)
 			rds_mixed[i] = 2*rds_delayed[i]*nco_rds_out[i];
@@ -447,7 +449,7 @@ void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_q
 		if (block_count < num_blocks_for_pll_tuning + num_blocks_for_cdr) // cdr needs to be tuned
 		{
 			block_count++;
-			sampling_start_offset += sampling_start_adjust(rds_rrc_filt, samples_per_symbol);
+			sampling_start_offset += sampling_start_adjust(rds_rrc_filt, rds_sps);
 			continue;
 		}
 		else if (block_count == num_blocks_for_pll_tuning+num_blocks_for_cdr)
