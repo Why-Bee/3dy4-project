@@ -700,11 +700,19 @@ def frame_sync_initial(bitstream, found_count, last_found_counter, expected_next
  
     return found_count, last_found_counter, expected_next, next_state, state_len
 
-def frame_sync_blockwise(bitstream, state_values, state_len):
+def frame_sync_blockwise(bitstream,
+                         expected_next,
+                         rubish_score,
+                         rubish_streak,
+                         state_values,
+                         state_len,
+                         ps_next_up,
+                         ps_next_up_pos,
+                         ps_num_chars_set,
+                         program_service):
     CHECK_LEN = 26
-        
-    if (state_len != len(state_values)):
-        print(f"FUCKKK: {state_len}, {len(state_values)} ")
+    BAD_SYNDROME_SCORE = 10
+    GOOD_SYNDROME_SCORE = 1
     
     for start_idx in range(-state_len, len(bitstream)-CHECK_LEN, CHECK_LEN):        
         if start_idx < 0:
@@ -715,16 +723,46 @@ def frame_sync_blockwise(bitstream, state_values, state_len):
         ten_bit_code = multiply_parity(twenty_six_bit_value)
   
         is_valid, syndrome = matches_syndrome(ten_bit_code)
-        if is_valid:
-            print("Found Syndrome", syndrome)
+        if not is_valid or syndrome != expected_next:
+            print("bad value here")
+            # order is important here
+            rubish_streak += 1
+            rubish_score += BAD_SYNDROME_SCORE*rubish_streak
+            syndrome = expected_next
         else:
-            print("oh god")
-    
-    
+            # print("good value here")
+            rubish_streak = 0
+            if rubish_score > 0:
+                rubish_score -= GOOD_SYNDROME_SCORE
+                
+        # if syndrome == 'A':
+            # print(f"PI: {hex(concat_bool_arr(twenty_six_bit_value[:16]))}")
+        if syndrome == 'B':
+            # print(f"PTY: {(concat_bool_arr(twenty_six_bit_value[6:11]))}")
+            ps_next_up = concat_bool_arr(twenty_six_bit_value[:5])
+            ps_next_up_pos = concat_bool_arr(twenty_six_bit_value[14:16])
+        if syndrome == 'D':
+            if ps_next_up == 0 or ps_next_up == 1:
+                if ps_num_chars_set < 8:
+                    ps_num_chars_set += 2
+                    
+                program_service = program_service[:2*ps_next_up_pos] + \
+                    chr(concat_bool_arr(twenty_six_bit_value[:8])) + \
+                    chr(concat_bool_arr(twenty_six_bit_value[8:16])) + \
+                    program_service[2*ps_next_up_pos + 2:]
+                    
+                if  ps_num_chars_set == 8:
+                    print(f"PS:", program_service)
+                    program_service = '_'*8
+                    ps_num_chars_set = 0
+            
+        expected_next = next_syndrome_dict[syndrome]
+        
+        # DO SOMETHING
     next_state_len = (len(bitstream) + state_len) % CHECK_LEN
     next_state = bitstream[-next_state_len:]
     
-    return next_state, next_state_len
+    return expected_next, rubish_score, rubish_streak, next_state, next_state_len, ps_next_up, ps_next_up_pos, ps_num_chars_set, program_service
     
 
 # def frame_sync(bitstream, sync_mode, expected_next, state_values, state_len):
