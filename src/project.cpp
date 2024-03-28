@@ -404,9 +404,10 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 	int fs_state_len = 0;
 	int fs_mode = 1;
 	int fs_init_found_thresh = 4;
+	const int fs_rubish_tresh = 10;
 
 	uint16_t fs_rubish_score = 0;
-	uint16_t rs_rubish_streak = 0;
+	uint16_t fs_rubish_streak = 0;
 	uint32_t ps_next_up = -1;
 	uint32_t ps_next_up_pos = 0;
 	uint8_t ps_num_chars_set = 0;
@@ -559,13 +560,24 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 			frame_sync_blockwise(bitstream_decoded, 
 								 fs_expected_next,
 								 fs_rubish_score,
-								 rs_rubish_streak,
+								 fs_rubish_streak,
 								 fs_state_values,
 								 fs_state_len,
 								 ps_next_up,
 								 ps_next_up_pos, 
 								 ps_num_chars_set,
 								 program_service);
+
+			if (fs_rubish_streak > fs_rubish_tresh) {
+				fs_mode = 1;
+				fs_found_count = 0;
+				fs_last_found_counter = 0;
+				fs_expected_next = '\0';
+				fs_state_values.clear(); fs_state_values.resize(kCheckLen);
+				fs_state_len = 0;
+				fs_rubish_streak = 0;
+				fs_rubish_score = 0;
+			}
 
 		}
 	

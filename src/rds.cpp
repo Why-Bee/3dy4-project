@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include <string>
 #include <iostream>
+
 #include "rds.h"
 
 
@@ -40,6 +41,19 @@ static std::unordered_map<char, char> next_syndrome_dict{
                                               {'B', 'C'}, 
                                               {'C', 'D'}, 
                                               {'D', 'A'}};
+
+const std::unordered_map<uint32_t, std::string> program_type_dict{
+                                              {0, "None"}, 
+                                              {1, "News"}, 
+                                              {2, "Information"}, 
+                                              {3, "Sports"},
+                                              {4, "Talk"},
+                                              {5, "Rock"},
+                                              {6, "Classic Rock"},
+                                              {7, "Adult Hits"},
+                                              {8, "Soft Rock"},
+                                              {9, "Top 40"},
+                                              {10, "Country"}};
 
 int sampling_start_adjust(const std::vector<float> &block, const int samples_per_symbol) {
     int abs_min_idx = 0;
@@ -355,43 +369,43 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
                 rubbish_score -= kGoodSyndromeScore;
             }
        }
-
-        if (syndrome == 'A') {
-            std::cerr << "PI: " << std::hex << concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin(),
-                                                                     twenty_six_bit_value.begin() + 16))
-                                                                     << std::endl;
+        if (rubbish_streak == 0) {
+            if (syndrome == 'A') {
+                std::cerr << "PI: " << std::hex << concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin(),
+                                                                        twenty_six_bit_value.begin() + 16))
+                                                                        << std::endl;
+            }
+            if (syndrome == 'B') {
+                auto pty = program_type_dict.find(concat_bool_arr((std::vector<bool>(twenty_six_bit_value.begin() + 6,
+                                                                        twenty_six_bit_value.begin() + 11))));
+                std::cerr << "PTY: " << pty->second << std::endl;
+                
+                ps_next_up = concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin(), 
+                                                            twenty_six_bit_value.begin() + 5));
+                ps_next_up_pos = concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin() + 14, 
+                                                                twenty_six_bit_value.begin() + 16));
         }
-        if (syndrome == 'B') {
-            std::cerr << "PTY: " << concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin() + 6,
-                                                                     twenty_six_bit_value.begin() + 11))
-                                                                     << std::endl;
-            ps_next_up = concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin(), 
-                                                           twenty_six_bit_value.begin() + 5));
-            ps_next_up_pos = concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin() + 14, 
-                                                               twenty_six_bit_value.begin() + 16));
-       }
-       if (syndrome == 'D') {
-            if (ps_next_up == 0 || ps_next_up == 1) {
-                if (ps_num_chars_set < 8) {
-                    ps_num_chars_set += 2;
-                }
+            if (syndrome == 'D') {
+                if (ps_next_up == 0 || ps_next_up == 1) {
+                    if (ps_num_chars_set < 8) {
+                        ps_num_chars_set += 2;
+                    }
 
-                program_service = program_service.substr(0, 2*ps_next_up_pos) +
-                                static_cast<char>(concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin(), twenty_six_bit_value.begin() + 8))) +
-                                static_cast<char>(concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin() + 8, twenty_six_bit_value.begin() + 16))) +
-                                program_service.substr(2*ps_next_up_pos + 2, program_service.length()-1);
+                    program_service = program_service.substr(0, 2*ps_next_up_pos) +
+                                    static_cast<char>(concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin(), twenty_six_bit_value.begin() + 8))) +
+                                    static_cast<char>(concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin() + 8, twenty_six_bit_value.begin() + 16))) +
+                                    program_service.substr(2*ps_next_up_pos + 2, program_service.length()-1);
 
-                if (ps_num_chars_set == 8) {
-                    std::cerr << "PS: " << program_service << std::endl;
-                    program_service = "________";
-                    ps_num_chars_set = 0;
+                    if (ps_num_chars_set == 8) {
+                        std::cerr << "PS: " << program_service << std::endl;
+                        program_service = "________";
+                        ps_num_chars_set = 0;
+                    }
                 }
             }
-       }
-
+        }
        expected_next = next_syndrome_dict.at(syndrome);
     }
-
     state_len = (bitstream.size() + state_len) % kCheckLen;
     state_values = std::vector<bool>(bitstream.end() - state_len, bitstream.end());
 }
