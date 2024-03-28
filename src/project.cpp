@@ -365,8 +365,8 @@ void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_q
 	std::vector<float> rds_mixed(block_size/(kIQfactor*rf_decim), 0.0);
 	std::vector<float> rds_mixed_lfiltered(block_size/(kIQfactor*rf_decim), 0.0);
 	std::vector<float> rds_rrc_filt(block_size/(kIQfactor*rf_decim), 0.0); //TODO: scale this with the rational resampled size
-	std::vector<float> sampling_points;
-	std::vector<float> sampling_points_aggr;
+	std::vector<float> sampling_points(spb, 0.0);
+	std::vector<float> sampling_points_aggr(4*spb, 0.0);
 	
 	int diff_decode_state = 0;
 	int block_aggr_counter = 0;
@@ -453,19 +453,18 @@ void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_q
 		else if (block_count == num_blocks_for_pll_tuning+num_blocks_for_cdr)
 			sampling_start_offset = static_cast<int>(sampling_start_offset/num_blocks_for_cdr);
 
-		for (int i = sampling_start_offset; i < rds_rrc_filt.size(); i+=rds_sps)
-			sampling_points.push_back(rds_rrc_filt[i]);
+		for (int i = sampling_start_offset, j = 0; i < rds_rrc_filt.size(); i+=rds_sps, j++)
+			sampling_points[j] = rds_rrc_filt[i];
 
 		if (block_aggr_counter == 0)
 		{
-			sampling_points_aggr.clear();
-			sampling_points_aggr.resize(sampling_points.size());
-			sampling_points_aggr = sampling_points; // this is by default a deep copy;
+			for (int i = 0; i < size(sampling_points); i++)
+				sampling_points_aggr[i] = sampling_points[i];
 		}
 		else if (block_aggr_counter > 0)
 		{
-			for (unsigned int i = 0; i < sampling_points.length; i++)
-				sampling_points_aggr.push_back(sampling_points[i]);
+			for (unsigned int i = 0; i < sampling_points.size(); i++)
+				sampling_points_aggr[sampling_points.size()*block_aggr_counter + i] = sampling_points[i];
 		}
 
 		if (block_aggr_counter<samp_pts_aggr_blocks-1)
