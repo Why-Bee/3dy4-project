@@ -41,5 +41,15 @@ void frame_sync_initial(std::vector<bool> bitstream,
                         int& last_found_counter, 
                         char& expected_next, 
                         std::vector<bool> state_values, 
-                        int& state_len,
-                        std::vector<bool> next_state);
+                        int& state_len);
+
+void frame_sync_blockwise(const std::vector<bool>& bitstream,
+                          char& expected_next,
+                          uint16_t& rubish_score,
+                          uint16_t& rubbish_streak,
+                          std::vector<bool>& state_values,
+                          int& state_len,
+                          uint32_t& ps_next_up,
+                          uint32_t& ps_next_up_pos,
+                          uint8_t& ps_num_chars_set,
+                          std::string& program_service);

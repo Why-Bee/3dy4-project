@@ -381,6 +381,7 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 	std::vector<bool> bitstream(post_samp_pts_aggr_blocks*rds_spb_aggr/2, 0.0);
 	std::vector<bool> bitstream_decoded(post_samp_pts_aggr_blocks*rds_spb_aggr/2, 0.0);
 
+	std::vector<bool> fs_state_values(kCheckLen, false);
 	
 	bool diff_decode_state = 0;
 	int post_rrc_filt_block_aggr_counter = 0;
@@ -389,13 +390,27 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 	int sampling_start_offset = 0;
 	int num_blocks_for_pll_tuning = 20;
 	int num_blocks_for_cdr = 10;
+	int num_blocks_for_cdr_counter = 0;
 
 	int bitstream_select = -1;
 	int bitstream_score_0 = 0;
 	int bitstream_score_1 = 0;
 	int bitstream_select_thresh = 5;
 	bool recov_bistream_state = false;
-	std::string text = "";
+
+	int fs_found_count = 0;
+	int fs_last_found_counter = 0;
+	char fs_expected_next = '\0';
+	int fs_state_len = 0;
+	int fs_mode = 1;
+	int fs_init_found_thresh = 4;
+
+	uint16_t fs_rubish_score = 0;
+	uint16_t rs_rubish_streak = 0;
+	uint32_t ps_next_up = -1;
+	uint32_t ps_next_up_pos = 0;
+	uint8_t ps_num_chars_set = 0;
+	std::string program_service = "________";
 
 	impulseResponseBPF(kMonoSampleFrequency,
 					   kRDSBpfFcLow,
@@ -412,7 +427,8 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 	impulseResponseLPF(kMonoSampleFrequency,
 					   kRDSLpfFc,
 					   kRDSLpfNumTaps,
-					   rds_lpf_coeffs);
+					   rds_lpf_coeffs,
+					   rds_upsample);
 	
 	impulseResponseRRC(kMonoSampleFrequency/rds_decim,
 					   kRDSRrcNumTaps,
@@ -463,16 +479,16 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 
 		// Aggregate 2 blocks together before sampling
 		if (post_rrc_filt_block_aggr_counter == 0) {
-			for (int i = 0; i < size(rds_rrc_filt); i++) {
+			for (int i = 0; i < rds_rrc_filt.size(); i++) {
 				rds_rrc_filt_aggr[i] = rds_rrc_filt[i];
 			}
 		} else if (post_rrc_filt_block_aggr_counter > 0) {
-			size_t offset = rds_rrc_filt.size()*post_rrc_filt_block_aggr_counter;
-			for (unsigned int i = 0; i < rds_rrc_filt.size(); i++) {
+			int offset = rds_rrc_filt.size()*post_rrc_filt_block_aggr_counter;
+			for (int i = 0; i < rds_rrc_filt.size(); i++) {
 				rds_rrc_filt_aggr[offset + i] = rds_rrc_filt[i];
 			}
 		}
-
+		
 		if (post_rrc_filt_block_aggr_counter<(post_rrc_filt_aggr_blocks-1)) {
 			post_rrc_filt_block_aggr_counter++;
 			continue;
@@ -480,11 +496,14 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 
 		post_rrc_filt_block_aggr_counter = 0;
 
-		if (block_count < num_blocks_for_pll_tuning + 2*num_blocks_for_cdr) {
+		if (num_blocks_for_cdr_counter < num_blocks_for_cdr) {
 			sampling_start_offset += sampling_start_adjust(rds_rrc_filt_aggr, rds_sps);
+			num_blocks_for_cdr_counter++;
 			continue;
-		} else if (block_count == num_blocks_for_pll_tuning+num_blocks_for_cdr) {
+		} else if (num_blocks_for_cdr_counter == num_blocks_for_cdr) {
+			num_blocks_for_cdr_counter ++;
 			sampling_start_offset = static_cast<int>(sampling_start_offset/num_blocks_for_cdr);
+			std::cerr << "sampling start offset " << sampling_start_offset << std::endl; 
 		}
 
 		for (int i = sampling_start_offset, j = 0; i < rds_rrc_filt_aggr.size(); i+=rds_sps, j++) {
@@ -523,18 +542,33 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 
 		if (fs_mode == 1) {
 			frame_sync_initial(bitstream_decoded, 
-                        fs_found_count, 
-                        fs_last_found_counter, 
-                        fs_expected_next, 
-                        fs_state_values, 
-                        fs_state_len,
-                        fs_state)
+								fs_found_count, 
+								fs_last_found_counter, 
+								fs_expected_next, 
+								fs_state_values, 
+								fs_state_len);
+			if (fs_found_count >= fs_init_found_thresh) {
+				for (int i = 0; i< fs_last_found_counter; i++) {
+					fs_state_values[i] = fs_state_values[fs_state_values.size()-fs_last_found_counter+i];
+				}
+				fs_state_len = fs_last_found_counter;
+				fs_mode = 2;
+				std::cerr << "MODE 2!!!" << std::endl;
+			}
+		} else if (fs_mode == 2) {
+			frame_sync_blockwise(bitstream_decoded, 
+								 fs_expected_next,
+								 fs_rubish_score,
+								 rs_rubish_streak,
+								 fs_state_values,
+								 fs_state_len,
+								 ps_next_up,
+								 ps_next_up_pos, 
+								 ps_num_chars_set,
+								 program_service);
 
 		}
-{
-
-	}
-
 	
+	}
 }
 

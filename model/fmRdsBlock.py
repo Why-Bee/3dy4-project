@@ -290,6 +290,8 @@ if __name__ == "__main__":
             print("sampling start offset: ", sampling_start_offset)
 
         sampling_points = rds_rrcfiltered[sampling_start_offset::samples_per_symbol]
+        
+        print("sampling points size:", len(sampling_points))
 
         if block_aggr_counter == 0:
             sampling_points_aggr = sampling_points

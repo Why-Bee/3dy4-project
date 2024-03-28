@@ -45,7 +45,7 @@ int sampling_start_adjust(const std::vector<float> &block, const int samples_per
     int abs_min_idx = 0;
     float abs_min = std::abs(block[abs_min_idx]);
     float diff;
-    for (int i = 0; i < block.size()-10; i++) {
+    for (int i = 0; i < block.size(); i++) {
         diff = std::abs(block[i]);
         if (diff < abs_min) {
             abs_min = diff;
@@ -144,14 +144,13 @@ std::pair<bool, char> matches_syndrome(uint32_t ten_bit_val) {
         {0b1111001100, 'C'}, // Cprime
         {0b1001011000, 'D'}
     };
-
-    for (auto& [value, syndrome] : les_syndromes) {
-        if (ten_bit_val == value) {
-            return {true, syndrome};
-        }
+ 
+    auto syndrome = les_syndromes.find(ten_bit_val);
+    if (syndrome != les_syndromes.end()) {
+        return {true, syndrome->second};
+    } else {
+        return {false, ' '};
     }
-
-    return {false, ' '};
 }
 
 // modifies: bitstream, bitstream_select, bitstream_score_0, bitstream_score_1, last_value_state
@@ -164,7 +163,7 @@ void recover_bitstream(std::vector<bool>& bitstream,
                           const std::vector<float>& sampling_points, 
                           const int bitstream_select_thresh) 
 {
-    int ll_count0, hh_count0, ll_count1, hh_count1;
+    int ll_count0, hh_count0, ll_count1, hh_count1 = 0;
     if (bitstream_select == 0) {
         symbol_vals_to_bits(bitstream, ll_count0, hh_count0, sampling_points, 0, last_value_state);
     } else if (bitstream_select == 1) {
@@ -251,13 +250,14 @@ void frame_sync_initial(const std::vector<bool> bitstream,
     char syndrome = '_';
     bool is_valid = false;
 
-    for(int start_idx = -state_len; start_idx < bitstream.size()-kCheckLen; start_idx++) {
+    for(int start_idx = -state_len; start_idx < static_cast<int>(bitstream.size()-kCheckLen); start_idx++) {
         if (start_idx < 0) {
             int j = 0;
             for (int i = state_len+start_idx; i < state_values.size(); i++, j++) {
                 twenty_six_bit_value[j] = state_values[i];
             }
-            for (int i = start_idx; i < start_idx+kCheckLen; i++, j++) {
+            std::cout << start_idx + kCheckLen << std:: endl;
+            for (int i = 0; i < start_idx+kCheckLen; i++, j++) {
                 twenty_six_bit_value[j] = bitstream[i<0?(bitstream.size()-i) : i];
             }
         } else {
@@ -282,7 +282,7 @@ void frame_sync_initial(const std::vector<bool> bitstream,
                     continue;
                 }
             }
-            expected_next = next_syndrome_dict[p.second];
+            expected_next = next_syndrome_dict[syndrome];
             found_count++;
             last_found_counter = 0;
             std::cerr << "Good syndrome, " << found_count << std::endl;
@@ -305,21 +305,23 @@ void frame_sync_initial(const std::vector<bool> bitstream,
 
 void frame_sync_blockwise(const std::vector<bool>& bitstream,
                           char& expected_next,
-                          uint16_t& rubish_score,
+                          uint16_t& rubbish_score,
                           uint16_t& rubbish_streak,
                           std::vector<bool>& state_values,
-                          uint8_t& state_len,
+                          int& state_len,
                           uint32_t& ps_next_up,
                           uint32_t& ps_next_up_pos,
                           uint8_t& ps_num_chars_set,
                           std::string& program_service) {
+
+    static int shitty_syndrome_count = 0;
 
     uint16_t ten_bit_code;
 
     std::vector<bool> twenty_six_bit_value;
     twenty_six_bit_value.reserve(kCheckLen);
 
-    for(int start_idx = -state_len; start_idx < (bitstream.size() - kCheckLen); start_idx += kCheckLen) {
+    for(int start_idx = -state_len; start_idx < static_cast<int>(bitstream.size() - kCheckLen); start_idx += kCheckLen) {
         if (start_idx < 0) {
             twenty_six_bit_value.insert(twenty_six_bit_value.end(), 
                                         state_values.begin(), 
@@ -338,21 +340,26 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
        auto[is_valid, syndrome] = matches_syndrome(ten_bit_code);
 
        if (!is_valid || syndrome != expected_next) {
+            std::cerr << "shitty syndrome " << ++shitty_syndrome_count << std::endl;
             // order is important here
             rubbish_streak++;
-            rubish_score += kBadSyndromeScore*rubbish_streak;
+            rubbish_score += kBadSyndromeScore*rubbish_streak;
             syndrome = expected_next;
        } else { 
+            std::cerr << "good syndrome " << syndrome << std::endl;
+
             rubbish_streak = 0;
-            if (rubish_score > 0) {
-                rubish_score -= kGoodSyndromeScore;
+            if (rubbish_score > 0) {
+                rubbish_score -= kGoodSyndromeScore;
             }
        }
 
         if (syndrome == 'A') {
+            std::cerr << "PI: " << "go code it up bud" << std::endl; 
             // PRINT PI CODE HERE
         }
         if (syndrome == 'B') {
+            std::cerr << "PTY: " << "go code it up bud" << std::endl; 
             // PRINT PTY CODE HERE
             ps_next_up = concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin(), 
                                                            twenty_six_bit_value.begin() + 5));
