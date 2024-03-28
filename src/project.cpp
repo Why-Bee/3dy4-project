@@ -403,7 +403,7 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 	char fs_expected_next = '\0';
 	int fs_state_len = 0;
 	int fs_mode = 1;
-	int fs_init_found_thresh = 4;
+	int fs_init_found_thresh = 6;
 
 	uint16_t fs_rubish_score = 0;
 	uint16_t rs_rubish_streak = 0;
@@ -488,7 +488,7 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 				rds_rrc_filt_aggr[offset + i] = rds_rrc_filt[i];
 			}
 		}
-		
+
 		if (post_rrc_filt_block_aggr_counter<(post_rrc_filt_aggr_blocks-1)) {
 			post_rrc_filt_block_aggr_counter++;
 			continue;

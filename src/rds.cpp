@@ -253,7 +253,7 @@ void frame_sync_initial(const std::vector<bool> bitstream,
     for(int start_idx = -state_len; start_idx < static_cast<int>(bitstream.size()-kCheckLen); start_idx++) {
         if (start_idx < 0) {
             int j = 0;
-            for (int i = state_len+start_idx; i < state_values.size(); i++, j++) {
+            for (int i = state_len+start_idx; i < state_len; i++, j++) {
                 twenty_six_bit_value[j] = state_values[i];
             }
             std::cout << start_idx + kCheckLen << std:: endl;
@@ -355,12 +355,14 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
        }
 
         if (syndrome == 'A') {
-            std::cerr << "PI: " << "go code it up bud" << std::endl; 
-            // PRINT PI CODE HERE
+            std::cerr << "PI: " << std::hex << concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin(),
+                                                                     twenty_six_bit_value.begin() + 16))
+                                                                     << std::endl;
         }
         if (syndrome == 'B') {
-            std::cerr << "PTY: " << "go code it up bud" << std::endl; 
-            // PRINT PTY CODE HERE
+            std::cerr << "PTY: " << concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin() + 6,
+                                                                     twenty_six_bit_value.begin() + 11))
+                                                                     << std::endl;
             ps_next_up = concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin(), 
                                                            twenty_six_bit_value.begin() + 5));
             ps_next_up_pos = concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin() + 14, 
