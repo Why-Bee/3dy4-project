@@ -1,5 +1,7 @@
 #include <vector>
 #include <unordered_map>
+#include <string>
+
 #include "rds.h"
 
 int sampling_start_adjust(const std::vector<float> &block, const int samples_per_symbol) {
@@ -271,4 +273,88 @@ void frame_sync_initial(std::vector<bool> bitstream,
 
     for (int i = bitstream.size()-state_len, j = 0; i < bitstream.size(); i++, j++)
         next_state[j] = bitstream[i];
+}
+
+void frame_sync_blockwise(std::vector<bool>& bitstream,
+                          char& expected_next,
+                          uint16_t& rubish_score,
+                          uint16_t& rubbish_streak,
+                          std::vector<bool>& state_values,
+                          uint8_t& state_len,
+                          uint32_t& ps_next_up,
+                          uint32_t& ps_next_up_pos,
+                          uint8_t& ps_num_chars_set,
+                          std::string& program_service,
+                          uint8_t& next_state_len,
+                          std::vector<bool>& next_state) {
+
+    uint16_t ten_bit_code;
+
+    std::vector<bool> twenty_six_bit_value;
+    twenty_six_bit_value.reserve(kCheckLen);
+
+    for(int start_idx = -state_len; start_idx < bitstream.size(); start_idx += kCheckLen) {
+        if (start_idx < 0) {
+            twenty_six_bit_value.insert(twenty_six_bit_value.end(), 
+                                        state_values.begin(), 
+                                        state_values.end());
+            twenty_six_bit_value.insert(twenty_six_bit_value.end(), 
+                                        bitstream.begin(), 
+                                        bitstream.begin() + kCheckLen - state_len);
+        } else {
+            twenty_six_bit_value.insert(twenty_six_bit_value.end(), 
+                                        bitstream.begin() + start_idx, 
+                                        bitstream.begin() + start_idx + kCheckLen);
+        }
+
+        ten_bit_code = multiply_parity(twenty_six_bit_value);
+
+       auto[is_valid, syndrome] = matches_syndrome(ten_bit_code);
+
+       if (!is_valid || syndrome != expected_next) {
+            // order is important here
+            rubbish_streak++;
+            rubish_score += kBadSyndromeScore*rubbish_streak;
+            syndrome = expected_next;
+       } else { 
+            rubbish_streak = 0;
+            if (rubbish_streak > 0) {
+                rubish_score -= kGoodSyndromeScore;
+            }
+       }
+
+        if (syndrome == 'A') {
+            // PRINT PI CODE HERE
+        }
+        if (syndrome == 'B') {
+            // PRINT PTY CODE HERE
+            ps_next_up = concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin(), 
+                                                           twenty_six_bit_value.begin() + 5));
+            ps_next_up_pos = concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin() + 14, 
+                                                               twenty_six_bit_value.begin() + 16));
+       }
+       if (syndrome == 'D') {
+            if (ps_next_up == 0 || ps_next_up == 1) {
+                if (ps_num_chars_set < 8) {
+                    ps_num_chars_set += 2;
+                }
+
+                program_service = program_service.substr(0, 2*ps_next_up_pos) +
+                                static_cast<char>(concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin(), twenty_six_bit_value.begin() + 8))) +
+                                static_cast<char>(concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin() + 8, twenty_six_bit_value.begin() + 16))) +
+                                program_service.substr(2*ps_next_up_pos + 2, program_service.length()-1);
+
+                if (ps_num_chars_set == 8) {
+                    std::cerr << "PS: " << program_service;
+                    program_service = "________";
+                    ps_num_chars_set = 0;
+                }
+            }
+       }
+
+       expected_next = next_syndrome_dict.at(syndrome);
+    }
+
+    next_state_len = (bitstream.size() + state_len) % kCheckLen;
+    next_state = std::vector<bool>(bitstream.end() - next_state_len, bitstream.end());
 }
