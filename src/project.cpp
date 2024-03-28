@@ -377,6 +377,10 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 
 	std::vector<float> sampling_points(rds_spb_aggr, 0.0);
 	std::vector<float> sampling_points_aggr(post_samp_pts_aggr_blocks*rds_spb_aggr, 0.0);
+
+	std::vector<bool> bitstream(post_samp_pts_aggr_blocks*rds_spb_aggr/2, 0.0);
+	std::vector<bool> bitstream_decoded(post_samp_pts_aggr_blocks*rds_spb_aggr/2, 0.0);
+
 	
 	int diff_decode_state = 0;
 	int post_rrc_filt_block_aggr_counter = 0;
@@ -386,10 +390,11 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 	int num_blocks_for_pll_tuning = 20;
 	int num_blocks_for_cdr = 10;
 
-	int bitstream_select;
+	int bitstream_select = -1;
 	int bitstream_score_0 = 0;
 	int bitstream_score_1 = 0;
-	int bitstream_select_thresh = 1;
+	int bitstream_select_thresh = 5;
+	bool recov_bistream_state = false;
 	std::string text = "";
 
 	impulseResponseBPF(kMonoSampleFrequency,
@@ -420,11 +425,11 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 		convolveFIR(rds_filtered, fm_demodulated, rds_bpf_coeffs, rds_bpf_state); // get the entire RDS data
 
 		for (unsigned int i = 0; i < rds_filtered.size(); i++)
-			rds_squared[i] = 100*rds_filtered[i]*rds_filtered[i];
+			rds_squared[i] = rds_filtered[i]*rds_filtered[i];
 
 		convolveFIR(rds_pilot, rds_squared, rds_squared_bpf_coeffs, rds_squared_bpf_state); // extract the carrier
 
-		fmPll(rds_pilot, kRDSCarrierFreq, kMonoSampleFrequency, pll_state_rds, kRDSNcoScale, nco_rds_out, 0, 0.0025); // lock pll at 57 kHz to pilot
+		fmPll(rds_pilot, kRDSCarrierFreq, kMonoSampleFrequency, pll_state_rds, kRDSNcoScale, nco_rds_out, 0, 0.0005); // lock pll at 57 kHz to pilot
 
 		if (block_count < num_blocks_for_pll_tuning)
 			continue;
@@ -432,13 +437,6 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 		// pll is tuned now
 
 		delayBlock(rds_filtered, rds_delayed, rds_apf_state); // delay the rds to match filtering on carrier
-
-		if (block_count == 120) {
-			std::cerr << "LOGGGGGGGGG" << std::endl;
-			logVector("rds_pll_out", nco_rds_out);
-			logVector("rds_data_apf", rds_delayed);
-			logVector("rds_pilot", rds_pilot);
-		}
 
 		// DEBUG: delete later if needed
 		if (nco_rds_out.size()-1 != rds_delayed.size())
@@ -454,6 +452,14 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 		convolveFIR(rds_rrc_filt, rds_mixed_lfiltered, rds_rrc_coeffs, rds_rrc_state); // Convert to a Root Raised Cosine
 
 		// RRC wave established- time to recover data
+
+		if (block_count == 120) {
+			std::cerr << "LOGGGGGGGGG" << std::endl;
+			logVector("rds_pll_out", nco_rds_out);
+			logVector("rds_data_apf", rds_delayed);
+			logVector("rds_pilot", rds_pilot);
+			logVector("rds_rrc_filt", rds_rrc_filt);
+		}
 
 		// Aggregate 2 blocks together before sampling
 		if (post_rrc_filt_block_aggr_counter == 0) {
@@ -505,8 +511,15 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 
 		// the aggregating of data is done
 
+		recover_bitstream(bitstream, 
+						  bitstream_select, 
+						  bitstream_score_0, 
+						  bitstream_score_1,
+						  recov_bistream_state,
+						  sampling_points_aggr,
+						  bitstream_select_thresh);
 		
-		
+		differential_decode_stateful(bitstream_decoded, diff_decode_state, bitstream);
 
 	}
 

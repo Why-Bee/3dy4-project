@@ -110,9 +110,9 @@ void differential_decode_stateful(std::vector<bool>& decoded,
                                   bool& last_val_state, 
                                   const std::vector<bool>& bool_array) 
 {
-    decoded.resize(bool_array.size()-1);
+    decoded.resize(bool_array.size());
     decoded[0] = last_val_state ^ bool_array[0];
-    for (int i = 1; i < bool_array.size()-1; i++) {
+    for (int i = 1; i < bool_array.size(); i++) {
         decoded[i] = bool_array[i] ^ bool_array[i-1];
     }
     last_val_state = bool_array[bool_array.size()-1];

@@ -10,9 +10,9 @@ set output "../data/rds_nco_out.png"        # Output file name
 # sines
 set ylabel 'nco out'                    # set y-axis label
 set yrange [-1:1]                       # set y plot range
-set xrange [2000:2200]                      # set x plot range
-plot '../data/rds_pll_out.dat' using 1:2 with lines lt 1 lw 1 lc rgb '#000088' notitle, \
-    '../data/rds_pilot.dat' using 1:($2*10) with lines lt 1 lw 1 lc rgb '#008800' notitle, \
+set xrange [0:400]                      # set x plot range
+plot '../data/rds_rrc_filt.dat' using 1:($2*100) with lines lt 1 lw 1 lc rgb '#000088' notitle, \
+    # '../data/rds_rrc_filt.dat' using 1:($2*100) with lines lt 1 lw 1 lc rgb '#008800' notitle, \
     # '../data/rds_data_apf.dat' using 1:($2*10) with lines lt 1 lw 2 lc rgb '#008800' notitle, \
 
 # uncomment the following block if you want to plot additional data
