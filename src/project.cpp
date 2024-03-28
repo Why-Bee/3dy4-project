@@ -17,6 +17,7 @@ Ontario, Canada
 #include "config.h"
 #include "safequeue.h"
 #include "pll.h"
+#include "rds.h"
 
 #include <limits>
 #include <unordered_map>
@@ -26,6 +27,7 @@ Ontario, Canada
 #include <condition_variable>
 #include <atomic>
 #include <pthread.h>
+#include <string>
 
 void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
 void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
@@ -64,6 +66,7 @@ constexpr float kRDSCarrierFreq = 114e3;
 constexpr float kRDSSquaredBpfFcHigh = 114.5e3;
 constexpr float kRDSSquaredBpfFcLow = 113.5e3;
 constexpr float kRDSSquaredBpfNumTaps = 101;
+constexpr float kRDSNcoScale = 0.5;
 
 constexpr uint16_t kMaxUint14 = 0x3FFF;
 
@@ -334,15 +337,150 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_queue)
 {
 	static const size_t block_size = config_map.at(mode).block_size;
-	static const int rds_upsample = config_map.at(mode).rds.upsample;
-	static const int rds_decim = config_map.at(mode).rds.downsample;
-	static const int rds_sps = config_map.at(mode).rds.sps;
+	static const short int rf_decim = config_map.at(mode).rf_downsample;
+	static const short int rds_upsample = config_map.at(mode).rds.upsample;
+	static const short int rds_downsample = config_map.at(mode).rds.downsample;
+	static const short int rds_sps = config_map.at(mode).rds.sps;
+
+	float rds_decim = rds_downsample/rds_upsample;
 
 	std::vector<float> rds_bpf_coeffs;
 	std::vector<float> rds_lpf_coeffs;
 	std::vector<float> rds_squared_bpf_coeffs;
 	std::vector<float> rds_rrc_coeffs;
 
-	std::vector<float> 
+	std::vector<float> rds_bpf_state(kRDSBpfNumTaps-1, 0.0);
+	std::vector<float> rds_lpf_state((kRDSLpfNumTaps-1), 0.0); 
+	std::vector<float> rds_apf_state(static_cast<int>((kRDSBpfNumTaps-1)/2), 0);
+	std::vector<float> rds_squared_bpf_state(kRDSSquaredBpfNumTaps-1, 0.0);
+	std::vector<float> rds_rrc_state(kRDSRrcNumTaps-1, 0.0);
+
+	PllState pll_state_rds = PllState();
+
+	std::vector<float> rds_filtered(block_size/(kIQfactor*rf_decim),0.0);
+	std::vector<float> rds_squared(block_size/(kIQfactor*rf_decim),0.0);
+	std::vector<float> rds_pilot(block_size/(kIQfactor*rf_decim),0.0);
+	std::vector<float> nco_rds_out;
+	std::vector<float> rds_delayed(block_size/(kIQfactor*rf_decim), 0.0);
+	std::vector<float> rds_mixed(block_size/(kIQfactor*rf_decim), 0.0);
+	std::vector<float> rds_mixed_lfiltered(block_size/(kIQfactor*rf_decim), 0.0);
+	std::vector<float> rds_rrc_filt(block_size/(kIQfactor*rf_decim), 0.0); //TODO: scale this with the rational resampled size
+	std::vector<float> sampling_points;
+	std::vector<float> sampling_points_aggr;
+	
+	int diff_decode_state = 0;
+	int block_aggr_counter = 0;
+	int block_count = 0;
+	
+
+	int sampling_start_offset = 0;
+	int num_blocks_for_pll_tuning = 20;
+	int num_blocks_for_cdr = 10;
+
+	int samp_pts_aggr_blocks = 4;
+
+	int bitstream_select;
+	int bitstream_score_0 = 0;
+	int bitstream_score_1 = 0;
+	int bitstream_select_thresh = 1
+	std::string text = "";
+
+	impulseResponseBPF(kMonoSampleFrequency,
+					   kRDSBpfFcLow,
+					   kRDSBpfFcHigh,
+					   kRDSBpfNumTaps,
+					   rds_bpf_coeffs);
+
+	impulseResponseBPF(kMonoSampleFrequency,
+					   kRDSSquaredBpfFcLow,
+					   kRDSSquaredBpfFcHigh,
+					   kRDSSquaredBpfNumTaps,
+					   rds_squared_bpf_coeffs);
+
+	impulseResponseLPF(kMonoSampleFrequency,
+					   kRDSLpfFc,
+					   kRDSLpfNumTaps,
+					   rds_lpf_coeffs);
+	
+	impulseResponseRRC(kMonoSampleFrequency/rds_decim,
+					   kRDSRrcNumTaps,
+					   rds_rrc_coeffs);
+
+
+	while (1) 
+	{
+		fm_demodulated = demodulated_samples_queue.dequeue();
+
+		convolveFIR(rds_filtered, fm_demodulated, rds_bpf_coeffs, rds_bpf_state); // get the entire RDS data
+
+		for (unsigned int i = 0; i < rds_filtered.size(); i++)
+			rds_squared[i] = pow(rds_filtered[i],2.0);
+
+		convolveFIR(rds_pilot, rds_squared, rds_squared_bpf_coeffs, rds_squared_bpf_state); // extract the carrier
+
+		fmPll(rds_pilot, kRDSCarrierFreq, kMonoSampleFrequency, pll_state_rds, kRDSNcoScale, nco_rds_out, norm_bandwidth = 0.0025); // lock pll at 57 kHz to pilot
+
+		if (block_count < num_blocks_for_pll_tuning)
+			block_count++;
+			continue;
+
+		// pll is tuned now
+
+		delayBlock(rds_filtered, rds_delayed, rds_apf_state); // delay the rds to match filtering on carrier
+
+		// DEBUG: delete later if needed
+		if (nco_rds_out.size()-1 != rds_delayed.size())
+			std::cerr << "WARNING- sizing error on RDS path! NCO size: " << nco_rds_out.size() << " RDS data size: " rds_delayed.size() << std::endl;
+
+
+		// Mixer!! credit Yash Bhatia, bhatiy1@mcmaster.ca, very cool guy, contact for licensing fees
+		for (unsigned int i = 0; i < rds_delayed.size(); i++)
+			rds_mixed[i] = 2*rds_delayed[i]*nco_rds_out[i];
+
+		convolveFIRResample(rds_mixed_lfiltered, rds_mixed, rds_lpf_coeffs, rds_lpf_state, 0, rds_downsample, rds_upsample); // Filter to 3kHz
+		// TODO: this is not known good, need to test?
+
+		convolveFIR(rds_rrc_filt, rds_mixed_lfiltered, rds_rrc_coeffs, rds_rrc_state); // Convert to a Root Raised Cosine
+
+		// RRC wave established- time to recover data
+
+		if (block_count < num_blocks_for_pll_tuning + num_blocks_for_cdr) // cdr needs to be tuned
+		{
+			block_count++;
+			sampling_start_offset += sampling_star-adjust(rds_rrcfiltered, samples_per_symbol);
+			continue;
+		}
+		else if (block_count == num_blocks_for_pll_tuning+num_blocks_for_cdr)
+			sampling_start_offset = static_cast<int>sampling_start_offset/num_blocks_for_cdr;
+
+		for (int i = sampling_start_offset; i < rds_rrc_filt.size(); i+=rds_sps)
+			sampling_points.push_back(rds_rrc_filt[i]);
+
+		if (block_aggr_counter == 0)
+		{
+			sampling_points_aggr.clear();
+			sampling_points_aggr.resize(sampling_points.size());
+			sampling_points_aggr = sampling_points; // this is by default a deep copy;
+		}
+		else if (block_aggr_counter > 0)
+		{
+			for (unsigned int i = 0; i < sampling_points.length; i++)
+				sampling_points_aggr.push_back(sampling_points[i]);
+		}
+
+		if (block_aggr_counter<samp_pts_aggr_blocks-1)
+		{
+			block_aggr_counter++;
+			continue;
+		}
+
+		// the aggregating of data is done
+
+		
+		
+
+	}
+
+	
 }
 
