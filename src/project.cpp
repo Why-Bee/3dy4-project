@@ -75,10 +75,10 @@ constexpr uint16_t kMaxUint14 = 0x3FFF;
 /* GLOBAL VARIABLES */
 
 std::unordered_map<uint8_t, Config> config_map = {
-	{0, {.block_size= 76800, .rf_downsample=10, AudioConfig{.upsample=  1, .downsample=   5}, RdsConfig{.upsample=247, .downsample=1920, .sps=13}}},
-	{1, {.block_size= 86400, .rf_downsample= 6, AudioConfig{.upsample=  1, .downsample=  12}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0}}},
-	{2, {.block_size= 96000, .rf_downsample=10, AudioConfig{.upsample=147, .downsample= 800}, RdsConfig{.upsample= 19, .downsample=  64, .sps=30}}},
-	{3, {.block_size=115200, .rf_downsample= 9, AudioConfig{.upsample=441, .downsample=3200}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0}}},
+	{0, {.block_size= 76800, .rf_downsample=10, AudioConfig{.upsample=  1, .downsample=   5}, RdsConfig{.upsample=247, .downsample=1920, .sps=13, .spb_aggr=76}}},
+	{1, {.block_size= 86400, .rf_downsample= 6, AudioConfig{.upsample=  1, .downsample=  12}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0, .spb_aggr=0}}},
+	{2, {.block_size= 96000, .rf_downsample=10, AudioConfig{.upsample=147, .downsample= 800}, RdsConfig{.upsample= 19, .downsample=  64, .sps=30, .spb_aggr=95}}},
+	{3, {.block_size=115200, .rf_downsample= 9, AudioConfig{.upsample=441, .downsample=3200}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0, .spb_aggr=0}}},
 };
 
 int mode    = 0; // mode 0, 1, 2, 3. Default is 0
@@ -92,7 +92,8 @@ int main(int argc, char* argv[])
 	SafeQueue<std::vector<float>> demodulated_samples_queue;
 
 	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue));
-	std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue));
+	std::thread audio_consumer_thread(rds_processing_thread, std::ref(demodulated_samples_queue));
+	// std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue));
 
 	#ifndef __APPLE__
 	cpu_set_t cpuset;
@@ -337,13 +338,17 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 	}
 }
 
-void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_queue)
+void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue)
 {
 	static const size_t block_size = config_map.at(mode).block_size;
 	static const short int rf_decim = config_map.at(mode).rf_downsample;
 	static const short int rds_upsample = config_map.at(mode).rds.upsample;
 	static const short int rds_downsample = config_map.at(mode).rds.downsample;
 	static const short int rds_sps = config_map.at(mode).rds.sps;
+	static const short int rds_spb_aggr = config_map.at(mode).rds.spb_aggr;
+
+	constexpr int post_rrc_filt_aggr_blocks = 2; // DONT TRY TO UPDATE THIS UNLESS CHANGING CONFIG for SPB
+	constexpr int post_samp_pts_aggr_blocks = 2;
 
 	float rds_decim = rds_downsample/rds_upsample;
 
@@ -363,24 +368,23 @@ void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_q
 	std::vector<float> rds_filtered(block_size/(kIQfactor*rf_decim),0.0);
 	std::vector<float> rds_squared(block_size/(kIQfactor*rf_decim),0.0);
 	std::vector<float> rds_pilot(block_size/(kIQfactor*rf_decim),0.0);
-	std::vector<float> nco_rds_out;
+	std::vector<float> nco_rds_out(block_size/(kIQfactor*rf_decim)+1, 0.0);
 	std::vector<float> rds_delayed(block_size/(kIQfactor*rf_decim), 0.0);
 	std::vector<float> rds_mixed(block_size/(kIQfactor*rf_decim), 0.0);
-	std::vector<float> rds_mixed_lfiltered(block_size/(kIQfactor*rf_decim), 0.0);
-	std::vector<float> rds_rrc_filt(block_size/(kIQfactor*rf_decim), 0.0); //TODO: scale this with the rational resampled size
-	std::vector<float> sampling_points(spb, 0.0);
-	std::vector<float> sampling_points_aggr(4*spb, 0.0);
+	std::vector<float> rds_mixed_lfiltered(block_size*rds_upsample/(kIQfactor*rf_decim*rds_downsample), 0.0);
+	std::vector<float> rds_rrc_filt(block_size*rds_upsample/(kIQfactor*rf_decim*rds_downsample), 0.0); //TODO: scale this with the rational resampled size
+	std::vector<float> rds_rrc_filt_aggr(post_rrc_filt_aggr_blocks*block_size*rds_upsample/(kIQfactor*rf_decim*rds_downsample), 0.0); //TODO: scale this with the rational resampled size
+
+	std::vector<float> sampling_points(rds_spb_aggr, 0.0);
+	std::vector<float> sampling_points_aggr(post_samp_pts_aggr_blocks*rds_spb_aggr, 0.0);
 	
 	int diff_decode_state = 0;
-	int block_aggr_counter = 0;
-	int block_count = 0;
-	
+	int post_rrc_filt_block_aggr_counter = 0;
+	int post_sample_block_aggr_counter = 0;
 
 	int sampling_start_offset = 0;
 	int num_blocks_for_pll_tuning = 20;
 	int num_blocks_for_cdr = 10;
-
-	int samp_pts_aggr_blocks = 4;
 
 	int bitstream_select;
 	int bitstream_score_0 = 0;
@@ -409,27 +413,32 @@ void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_q
 					   kRDSRrcNumTaps,
 					   rds_rrc_coeffs);
 
-
-	while (1) 
+	for (uint64_t block_count = 0; ;block_count++) 
 	{
 		std::vector<float> fm_demodulated = demodulated_samples_queue.dequeue();
 
 		convolveFIR(rds_filtered, fm_demodulated, rds_bpf_coeffs, rds_bpf_state); // get the entire RDS data
 
 		for (unsigned int i = 0; i < rds_filtered.size(); i++)
-			rds_squared[i] = pow(rds_filtered[i],2.0);
+			rds_squared[i] = 100*rds_filtered[i]*rds_filtered[i];
 
 		convolveFIR(rds_pilot, rds_squared, rds_squared_bpf_coeffs, rds_squared_bpf_state); // extract the carrier
 
 		fmPll(rds_pilot, kRDSCarrierFreq, kMonoSampleFrequency, pll_state_rds, kRDSNcoScale, nco_rds_out, 0, 0.0025); // lock pll at 57 kHz to pilot
 
 		if (block_count < num_blocks_for_pll_tuning)
-			block_count++;
 			continue;
 
 		// pll is tuned now
 
 		delayBlock(rds_filtered, rds_delayed, rds_apf_state); // delay the rds to match filtering on carrier
+
+		if (block_count == 120) {
+			std::cerr << "LOGGGGGGGGG" << std::endl;
+			logVector("rds_pll_out", nco_rds_out);
+			logVector("rds_data_apf", rds_delayed);
+			logVector("rds_pilot", rds_pilot);
+		}
 
 		// DEBUG: delete later if needed
 		if (nco_rds_out.size()-1 != rds_delayed.size())
@@ -446,34 +455,53 @@ void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_q
 
 		// RRC wave established- time to recover data
 
-		if (block_count < num_blocks_for_pll_tuning + num_blocks_for_cdr) // cdr needs to be tuned
-		{
-			block_count++;
-			sampling_start_offset += sampling_start_adjust(rds_rrc_filt, rds_sps);
+		// Aggregate 2 blocks together before sampling
+		if (post_rrc_filt_block_aggr_counter == 0) {
+			for (int i = 0; i < size(rds_rrc_filt); i++) {
+				rds_rrc_filt_aggr[i] = rds_rrc_filt[i];
+			}
+		} else if (post_rrc_filt_block_aggr_counter > 0) {
+			size_t offset = rds_rrc_filt.size()*post_rrc_filt_block_aggr_counter;
+			for (unsigned int i = 0; i < rds_rrc_filt.size(); i++) {
+				rds_rrc_filt_aggr[offset + i] = rds_rrc_filt[i];
+			}
+		}
+
+		if (post_rrc_filt_block_aggr_counter<(post_rrc_filt_aggr_blocks-1)) {
+			post_rrc_filt_block_aggr_counter++;
 			continue;
 		}
-		else if (block_count == num_blocks_for_pll_tuning+num_blocks_for_cdr)
+
+		post_rrc_filt_block_aggr_counter = 0;
+
+		if (block_count < num_blocks_for_pll_tuning + 2*num_blocks_for_cdr) {
+			sampling_start_offset += sampling_start_adjust(rds_rrc_filt_aggr, rds_sps);
+			continue;
+		} else if (block_count == num_blocks_for_pll_tuning+num_blocks_for_cdr) {
 			sampling_start_offset = static_cast<int>(sampling_start_offset/num_blocks_for_cdr);
+		}
 
-		for (int i = sampling_start_offset, j = 0; i < rds_rrc_filt.size(); i+=rds_sps, j++)
-			sampling_points[j] = rds_rrc_filt[i];
+		for (int i = sampling_start_offset, j = 0; i < rds_rrc_filt_aggr.size(); i+=rds_sps, j++) {
+			sampling_points[j] = rds_rrc_filt_aggr[i];
+		}
 
-		if (block_aggr_counter == 0)
-		{
-			for (int i = 0; i < size(sampling_points); i++)
+		if (post_sample_block_aggr_counter == 0) {
+			for (int i = 0; i < size(sampling_points); i++) {
 				sampling_points_aggr[i] = sampling_points[i];
-		}
-		else if (block_aggr_counter > 0)
-		{
-			for (unsigned int i = 0; i < sampling_points.size(); i++)
-				sampling_points_aggr[sampling_points.size()*block_aggr_counter + i] = sampling_points[i];
+			}
+		} else if (post_sample_block_aggr_counter > 0) {
+			size_t offset = sampling_points.size()*post_sample_block_aggr_counter;
+			for (unsigned int i = 0; i < sampling_points.size(); i++) {
+				sampling_points_aggr[offset + i] = sampling_points[i];
+			}
 		}
 
-		if (block_aggr_counter<samp_pts_aggr_blocks-1)
-		{
-			block_aggr_counter++;
+		if (post_sample_block_aggr_counter < (post_samp_pts_aggr_blocks-1)) {
+			post_sample_block_aggr_counter++;
 			continue;
 		}
+
+		post_sample_block_aggr_counter = 0;
 
 		// the aggregating of data is done
 

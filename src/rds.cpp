@@ -1,8 +1,45 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
-
+#include <iostream>
 #include "rds.h"
+
+
+// Values
+static const std::vector<std::vector<bool>> parity_matrix = 
+{{1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+ {0, 1, 0, 0, 0, 0, 0, 0, 0, 0}, 
+ {0, 0, 1, 0, 0, 0, 0, 0, 0, 0},
+ {0, 0, 0, 1, 0, 0, 0, 0, 0, 0},
+ {0, 0, 0, 0, 1, 0, 0, 0, 0, 0},
+ {0, 0, 0, 0, 0, 1, 0, 0, 0, 0},
+ {0, 0, 0, 0, 0, 0, 1, 0, 0, 0},
+ {0, 0, 0, 0, 0, 0, 0, 1, 0, 0},
+ {0, 0, 0, 0, 0, 0, 0, 0, 1, 0},
+ {0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+ {1, 0, 1, 1, 0, 1, 1, 1, 0, 0},
+ {0, 1, 0, 1, 1, 0, 1, 1, 1, 0},
+ {0, 0, 1, 0, 1, 1, 0, 1, 1, 1},
+ {1, 0, 1, 0, 0, 0, 0, 1, 1, 1},
+ {1, 1, 1, 0, 0, 1, 1, 1, 1, 1},
+ {1, 1, 0, 0, 0, 1, 0, 0, 1, 1},
+ {1, 1, 0, 1, 0, 1, 0, 1, 0, 1},
+ {1, 1, 0, 1, 1, 1, 0, 1, 1, 0},
+ {0, 1, 1, 0, 1, 1, 1, 0, 1, 1},
+ {1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+ {1, 1, 1, 1, 0, 1, 1, 1, 0, 0},
+ {0, 1, 1, 1, 1, 0, 1, 1, 1, 0},
+ {0, 0, 1, 1, 1, 1, 0, 1, 1, 1},
+ {1, 0, 1, 0, 1, 0, 0, 1, 1, 1},
+ {1, 1, 1, 0, 0, 0, 1, 1, 1, 1},
+ {1, 1, 0, 0, 0, 1, 1, 0, 1, 1}};
+
+
+static  std::unordered_map<char, char> next_syndrome_dict{
+                                              {'A', 'B'}, 
+                                              {'B', 'C'}, 
+                                              {'C', 'D'}, 
+                                              {'D', 'A'}};
 
 int sampling_start_adjust(const std::vector<float> &block, const int samples_per_symbol) {
     int abs_min_idx = 0;
@@ -26,13 +63,13 @@ void symbol_vals_to_bits(std::vector<bool>& bool_array,
                          int& hh_count, 
                          const std::vector<float>& sampling_points, 
                          const int offset, 
-                         const int last_value_state) 
+                         const float last_value_state) 
 {
     bool_array.resize(sampling_points.size()/2);
     hh_count = 0;
     ll_count = 0;
-    bool first_val = 0;
-    bool second_val = 0;
+    float first_val = 0.0;
+    float second_val = 0.0;
     for (int i = 0; i < sampling_points.size()-1; i+=2) {
         if ((i+offset)-1 < 0) {
             first_val = last_value_state;
@@ -93,7 +130,7 @@ uint32_t multiply_parity(const std::vector<bool>& matrix1) {
     std::vector<bool> result(parity_matrix[0].size(), false);
     for (int j = 0; j < parity_matrix[0].size(); j++) {
         for (int k = 0; k < parity_matrix.size(); k++) {
-            result[j] ^= matrix1[k] & parity_matrix[k][j];
+            result[j] = result[j] ^ (matrix1[k] && parity_matrix[k][j]);
         }
     }
     return concat_bool_arr(result);
@@ -231,7 +268,7 @@ void frame_sync_initial(std::vector<bool> bitstream,
         }
         else
         {
-            int j = 0
+            int j = 0;
             for (int i = start_idx; i < check_len+start_idx; i++, j++)
                 twenty_six_bit_value[j] = bitstream[i];
         }

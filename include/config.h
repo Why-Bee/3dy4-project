@@ -20,6 +20,7 @@ struct RdsConfig {
     unsigned short upsample;
     unsigned short downsample;
     unsigned short sps;
+    unsigned short spb_aggr;
 };
 
 struct Config {

@@ -2,45 +2,10 @@
 #include <unordered_map>
 #pragma once
 
-
-// Values
-const std::vector<std::vector<bool>> parity_matrix = 
-{{1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
- {0, 1, 0, 0, 0, 0, 0, 0, 0, 0}, 
- {0, 0, 1, 0, 0, 0, 0, 0, 0, 0},
- {0, 0, 0, 1, 0, 0, 0, 0, 0, 0},
- {0, 0, 0, 0, 1, 0, 0, 0, 0, 0},
- {0, 0, 0, 0, 0, 1, 0, 0, 0, 0},
- {0, 0, 0, 0, 0, 0, 1, 0, 0, 0},
- {0, 0, 0, 0, 0, 0, 0, 1, 0, 0},
- {0, 0, 0, 0, 0, 0, 0, 0, 1, 0},
- {0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
- {1, 0, 1, 1, 0, 1, 1, 1, 0, 0},
- {0, 1, 0, 1, 1, 0, 1, 1, 1, 0},
- {0, 0, 1, 0, 1, 1, 0, 1, 1, 1},
- {1, 0, 1, 0, 0, 0, 0, 1, 1, 1},
- {1, 1, 1, 0, 0, 1, 1, 1, 1, 1},
- {1, 1, 0, 0, 0, 1, 0, 0, 1, 1},
- {1, 1, 0, 1, 0, 1, 0, 1, 0, 1},
- {1, 1, 0, 1, 1, 1, 0, 1, 1, 0},
- {0, 1, 1, 0, 1, 1, 1, 0, 1, 1},
- {1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
- {1, 1, 1, 1, 0, 1, 1, 1, 0, 0},
- {0, 1, 1, 1, 1, 0, 1, 1, 1, 0},
- {0, 0, 1, 1, 1, 1, 0, 1, 1, 1},
- {1, 0, 1, 0, 1, 0, 0, 1, 1, 1},
- {1, 1, 1, 0, 0, 0, 1, 1, 1, 1},
- {1, 1, 0, 0, 0, 1, 1, 0, 1, 1}};
-
 constexpr uint8_t kCheckLen = 26;
 constexpr uint8_t kBadSyndromeScore = 10;
 constexpr uint8_t kGoodSyndromeScore = 10;
 
-const std::unordered_map<char, char> next_syndrome_dict{{'A', 'B'}, 
-                                              {'B', 'C'}, 
-                                              {'C', 'D'}, 
-                                              {'P', 'D'}, 
-                                              {'D', 'A'}};
  // Functions
 
 int sampling_start_adjust(const std::vector<float> &block, 
@@ -51,7 +16,7 @@ void symbol_vals_to_bits(std::vector<bool>& bool_array,
                          int& hh_count, 
                          const std::vector<float>& sampling_points, 
                          const int offset, 
-                         const int last_value_state);
+                         const float last_value_state);
 
 void differential_decode_stateful(std::vector<bool>& decoded, 
                                   bool& last_val_state, 

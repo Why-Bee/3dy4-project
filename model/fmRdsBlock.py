@@ -75,7 +75,7 @@ rds_decim = rds_downsampling_factor/rds_upsampling_factor
 
 sampling_start_offset = 0
 
-num_blocks_for_pll_tuning = 20
+num_blocks_for_pll_tuning = 100
 num_blocks_for_cdr = 10
 
 samp_pts_aggr_blocks = 4
@@ -152,7 +152,7 @@ program_service = 8*'_'
 if __name__ == "__main__":
 
 ################### READ IN DATA ####################################
-    in_fname = "../data/samples5.raw"
+    in_fname = "../data/samples3.raw"
 
     raw_data = np.fromfile(in_fname, dtype='uint8')
     print("Read raw RF data from \"" + in_fname + "\" in unsigned 8-bit format")
@@ -249,10 +249,11 @@ if __name__ == "__main__":
         
         if (block_count < num_blocks_for_pll_tuning):
             continue
-        # elif ( block_count == num_blocks_for_pll_tuning):
-        # 	plt.plot(ncoOut_inPhase[0:100])
-        # 	plt.plot(100*rds_filt_carrier[0:100])
-        # 	plt.show()
+        elif ( block_count == 30):
+            plt.plot(100*rds_filt_carrier[0:100])
+            # plt.plot(ncoOut_inPhase[0:100])
+            # plt.plot(100*rds_filt_carrier[0:100])
+            plt.show()
 
 ################### END RDS WAVEFORM EXTRACTION ####################################
 ################### ALL PASS FILTER RDS DATA ####################################
@@ -287,14 +288,6 @@ if __name__ == "__main__":
         elif (block_count == num_blocks_for_pll_tuning+num_blocks_for_cdr):
             sampling_start_offset = sampling_start_offset//num_blocks_for_cdr
             print("sampling start offset: ", sampling_start_offset)
-        if (block_count == 200):
-            sampling_points_graphing = upsample(np.ones(symbols_per_block), samples_per_symbol)[:-(sampling_start_offset)]
-            sampling_points_graphing = np.concatenate((np.zeros(sampling_start_offset), sampling_points_graphing))
-            sampling_points_graphing = sampling_points_graphing * rds_rrcfiltered
-
-            plt.plot(sampling_points_graphing)
-            plt.plot(rds_rrcfiltered)
-            plt.show() 
 
         sampling_points = rds_rrcfiltered[sampling_start_offset::samples_per_symbol]
 
