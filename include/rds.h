@@ -67,8 +67,6 @@ void recover_bitstream(std::vector<bool>& bitstream,
                           const std::vector<float>& sampling_points, 
                           const int bitstream_select_thresh);
 
-void convert(int x, std::vector<bool>& ret);
-
 void frame_sync_initial(std::vector<bool> bitstream, 
                         int& found_count, 
                         int& last_found_counter, 

@@ -156,17 +156,6 @@ void recover_bitstream(std::vector<bool>& bitstream,
     last_value_state = bitstream[bitstream.size()-1];
 }
 
-void convert(int x, std::vector<bool>& ret) {
-  while(x) {
-    if (x&1)
-      ret.push_back(1);
-    else
-      ret.push_back(0);
-    x>>=1;  
-  }
-  std::reverse(ret.begin(),ret.end());
-}
-
 
 /* cpp implementation of the following code:
 def frame_sync_initial(bitstream, found_count, last_found_counter, expected_next, state_values, state_len):
@@ -227,19 +216,24 @@ void frame_sync_initial(std::vector<bool> bitstream,
     {
         if (start_idx < 0)
         {
-            for (int i = state_len+start_idx; i < state_values.size(); i++)
-                twenty_six_bit_value.push_back(state_values[i]);
-
-            for (int i = 0; i < check_len+start_idx; i++)
-                twenty_six_bit_value.push_back(bitstream[i]);
+            int j = 0;
+            for (int i = state_len+start_idx; i < state_values.size(); i++, j++)
+            {
+                twenty_six_bit_value[j] = state_values[i];
+            }
+            for (int i = start_idx; i < start_idx+check_len; i++, j++)
+            {
+                twenty_six_bit_value[j] = bitstream[i<0?(bitstream.size()-i) : i];
+            }
         }
         else
         {
-            for (int i = start_idx; i < check_len+start_idx; i++)
-                twenty_six_bit_value.push_back(bitstream[i]);
+            int j = 0
+            for (int i = start_idx; i < check_len+start_idx; i++, j++)
+                twenty_six_bit_value[j] = bitstream[i];
         }
 
-        convert(multiply_parity(twenty_six_bit_value), ten_bit_code);
+        ten_bit_code = multiply_parity(twenty_six_bit_value);
 
         p = matches_syndrome(ten_bit_code);
         if (p.first)
@@ -274,6 +268,6 @@ void frame_sync_initial(std::vector<bool> bitstream,
     state_len = check_len-1;
     next_state.clear();
 
-    for (int i = bitstream.size()-state_len; i < bitstream.size(); i++)
-        next_state.push_back(bitstream[i]);
+    for (int i = bitstream.size()-state_len, j = 0; i < bitstream.size(); i++, j++)
+        next_state[j] = bitstream[i];
 }
