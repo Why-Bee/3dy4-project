@@ -94,15 +94,21 @@ int main(int argc, char* argv[])
 
 	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue_audio));
 	std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue_audio), std::ref(demodulated_samples_queue_rds));
-	std::thread rds_consumer_thread(rds_processing_thread, std::ref(demodulated_samples_queue_rds));
+
+	if (channel == 2) {
+		std::thread rds_consumer_thread(rds_processing_thread, std::ref(demodulated_samples_queue_rds));
+		
+		#ifndef __APPLE__
+		cpu_set_t cpuset;
+		CPU_ZERO(&cpuset);
+		CPU_SET(1, &cpuset);
+		pthread_setaffinity_np(rds_consumer_thread.native_handle(), 
+							sizeof(cpu_set_t), 
+							&cpuset);
+		#endif
+	}
 
 	#ifndef __APPLE__
-	cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(1, &cpuset);
-    pthread_setaffinity_np(rds_consumer_thread.native_handle(), 
-						   sizeof(cpu_set_t), 
-						   &cpuset);
 
     CPU_ZERO(&cpuset);
     CPU_SET(2, &cpuset);
@@ -119,6 +125,10 @@ int main(int argc, char* argv[])
 
 	rf_processing_thread.join();
 	audio_consumer_thread.join();
+
+	if (channel == 2) {
+		rds_consumer_thread.join();
+	}
 	
 	return 0;
 }
