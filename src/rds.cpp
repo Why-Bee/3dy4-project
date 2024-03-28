@@ -328,7 +328,8 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
                           uint8_t& ps_num_chars_set,
                           std::string& program_service) {
 
-    static int bad_syndrome_count = 0;
+    static int pi = -1;
+    static std::string pty = "None", ps = "None";
 
     uint16_t ten_bit_code;
 
@@ -370,16 +371,14 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
             }
        }
         if (rubbish_streak == 0) {
-            if (syndrome == 'A') {
-                std::cerr << "PI: " << std::hex << concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin(),
-                                                                        twenty_six_bit_value.begin() + 16))
-                                                                        << std::endl;
+            std::cerr << "PROGRAM INFO:" << "\r";
+            
+            if (syndrome == 'A') {   
+                pi = concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin(), twenty_six_bit_value.begin() + 16));                               
             }
             if (syndrome == 'B') {
-                auto pty = program_type_dict.find(concat_bool_arr((std::vector<bool>(twenty_six_bit_value.begin() + 6,
-                                                                        twenty_six_bit_value.begin() + 11))));
-                std::cerr << "PTY: " << pty->second << std::endl;
-                
+                pty = program_type_dict.find(concat_bool_arr((std::vector<bool>(twenty_six_bit_value.begin() + 6,
+                                                                        twenty_six_bit_value.begin() + 11))))->second;                
                 ps_next_up = concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin(), 
                                                             twenty_six_bit_value.begin() + 5));
                 ps_next_up_pos = concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin() + 14, 
@@ -397,12 +396,16 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
                                     program_service.substr(2*ps_next_up_pos + 2, program_service.length()-1);
 
                     if (ps_num_chars_set == 8) {
-                        std::cerr << "PS: " << program_service << std::endl;
-                        program_service = "________";
                         ps_num_chars_set = 0;
+                        ps = program_service;
                     }
                 }
             }
+
+            std::cerr << "PROGRAM INFORMATION" << std::endl;
+            std::cerr << "PI: " << std::hex << pi << std::endl;
+            std::cerr << "PTY: " << pty << std::endl;
+            std::cerr << "PROGRAM SERVICE: " << ps << std::endl << std::endl;
         }
        expected_next = next_syndrome_dict.at(syndrome);
     }
