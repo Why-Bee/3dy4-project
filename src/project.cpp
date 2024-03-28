@@ -282,7 +282,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 							audio_decimation,
 							audio_upsample);	
 			 
-		if (channel == 1) {
+		if (channel == 1 || channel == 2) {
 			delayBlock(demodulated_samples,
 					demodulated_samples_delayed,
 					apf_state);
@@ -336,7 +336,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 					else s16_audio_data[k] = static_cast<short int>(float_audio_data[k]*(kMaxUint14+1));
 			}
 		}
-		else if (channel == 1) { // write stereo data
+		else if (channel == 1 || channel == 2) { // write stereo data
 			s16_audio_data.resize(float_stereo_right_data.size()*2);
 			for (unsigned int k = 0; k < float_stereo_right_data.size(); k++){
 				if (std::isnan(float_stereo_right_data[k]) || std::isnan(float_stereo_left_data[k])) {
