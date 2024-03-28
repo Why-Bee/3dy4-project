@@ -395,7 +395,7 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
                                     static_cast<char>(concat_bool_arr(std::vector<bool>(twenty_six_bit_value.begin() + 8, twenty_six_bit_value.begin() + 16))) +
                                     program_service.substr(2*ps_next_up_pos + 2, program_service.length()-1);
 
-                    if (ps_num_chars_set == 8) {
+                    if (ps_num_chars_set == 8 && ps_next_up_pos == 0b11) {
                         ps_num_chars_set = 0;
                         ps = program_service;
                     }
