@@ -244,8 +244,7 @@ void frame_sync_initial(const std::vector<bool> bitstream,
                         int& last_found_counter, 
                         char& expected_next, 
                         std::vector<bool> state_values, 
-                        int& state_len,
-                        std::vector<bool> next_state)
+                        int& state_len)
 {
     std::vector<bool> twenty_six_bit_value(26, 0);
     uint32_t ten_bit_code;
@@ -298,10 +297,9 @@ void frame_sync_initial(const std::vector<bool> bitstream,
     }
 
     state_len = kCheckLen-1;
-    next_state.clear();
 
     for (int i = bitstream.size()-state_len, j = 0; i < bitstream.size(); i++, j++) {
-        next_state[j] = bitstream[i];
+        state_values[j] = bitstream[i];
     }
 }
 
@@ -314,9 +312,7 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
                           uint32_t& ps_next_up,
                           uint32_t& ps_next_up_pos,
                           uint8_t& ps_num_chars_set,
-                          std::string& program_service,
-                          uint8_t& next_state_len,
-                          std::vector<bool>& next_state) {
+                          std::string& program_service) {
 
     uint16_t ten_bit_code;
 
@@ -385,6 +381,6 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
        expected_next = next_syndrome_dict.at(syndrome);
     }
 
-    next_state_len = (bitstream.size() + state_len) % kCheckLen;
-    next_state = std::vector<bool>(bitstream.end() - next_state_len, bitstream.end());
+    state_len = (bitstream.size() + state_len) % kCheckLen;
+    state_values = std::vector<bool>(bitstream.end() - state_len, bitstream.end());
 }

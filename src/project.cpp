@@ -528,7 +528,7 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
                         fs_expected_next, 
                         fs_state_values, 
                         fs_state_len,
-                        std::vector<bool> next_state)
+                        fs_state)
 
 		}
 {
