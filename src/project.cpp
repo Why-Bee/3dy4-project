@@ -91,6 +91,7 @@ int main(int argc, char* argv[])
 	// Queue for demodulated samples shared between threads
 	SafeQueue<std::vector<float>> demodulated_samples_queue_rds;
 	SafeQueue<std::vector<float>> demodulated_samples_queue_audio;
+	cpu_set_t cpuset;
 
 	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue_audio));
 	std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue_audio), std::ref(demodulated_samples_queue_rds));
@@ -99,7 +100,6 @@ int main(int argc, char* argv[])
 		std::thread rds_consumer_thread(rds_processing_thread, std::ref(demodulated_samples_queue_rds));
 		
 		#ifndef __APPLE__
-		cpu_set_t cpuset;
 		CPU_ZERO(&cpuset);
 		CPU_SET(1, &cpuset);
 		pthread_setaffinity_np(rds_consumer_thread.native_handle(), 
