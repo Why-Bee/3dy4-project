@@ -29,9 +29,9 @@ Ontario, Canada
 #include <pthread.h>
 #include <string>
 
-void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
-void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
-void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
+void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio);
+void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio, SafeQueue<std::vector<float>> &demodulated_samples_queue_rds);
+void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_rds);
 
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
@@ -89,14 +89,21 @@ int main(int argc, char* argv[])
 	argparse_mode_channel(argc, argv, mode, channel);
 
 	// Queue for demodulated samples shared between threads
-	SafeQueue<std::vector<float>> demodulated_samples_queue;
+	SafeQueue<std::vector<float>> demodulated_samples_queue_rds;
+	SafeQueue<std::vector<float>> demodulated_samples_queue_audio;
 
-	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue));
-	std::thread audio_consumer_thread(rds_processing_thread, std::ref(demodulated_samples_queue));
-	// std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue));
+	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue_audio));
+	std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue_audio), std::ref(demodulated_samples_queue_rds));
+	std::thread rds_consumer_thread(rds_processing_thread, std::ref(demodulated_samples_queue_rds));
 
 	#ifndef __APPLE__
 	cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(1, &cpuset);
+    pthread_setaffinity_np(rds_consumer_thread.native_handle(), 
+						   sizeof(cpu_set_t), 
+						   &cpuset);
+
     CPU_ZERO(&cpuset);
     CPU_SET(2, &cpuset);
     pthread_setaffinity_np(rf_processing_thread.native_handle(), 
@@ -116,7 +123,7 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue)
+void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio)
 
 {
 	static const size_t block_size = config_map.at(mode).block_size;
@@ -182,13 +189,13 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 					  demod_state_q, 
 					  demodulated_samples);
 	
-	demodulated_samples_queue.enqueue(demodulated_samples);
+	demodulated_samples_queue_audio.enqueue(demodulated_samples);
 	
 	}
 
 }
 
-void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue)
+void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio, SafeQueue<std::vector<float>> &demodulated_samples_queue_rds)
 {
 
 	static const size_t block_size = config_map.at(mode).block_size;
@@ -254,7 +261,8 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 					   pilot_bpf_coeffs);
 		   
 	while (1) {
-		std::vector<float> demodulated_samples = demodulated_samples_queue.dequeue();
+		std::vector<float> demodulated_samples = demodulated_samples_queue_audio.dequeue();
+		demodulated_samples_queue_rds.enqueue(demodulated_samples);
 	
 		convolveFIRResample(float_audio_data,
 							demodulated_samples,
@@ -338,7 +346,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 	}
 }
 
-void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue)
+void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_rds)
 {
 	static const size_t block_size = config_map.at(mode).block_size;
 	static const short int rf_decim = config_map.at(mode).rf_downsample;
@@ -437,7 +445,7 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 
 	for (uint64_t block_count = 0; ;block_count++) 
 	{
-		std::vector<float> fm_demodulated = demodulated_samples_queue.dequeue();
+		std::vector<float> fm_demodulated = demodulated_samples_queue_rds.dequeue();
 
 		convolveFIR(rds_filtered, fm_demodulated, rds_bpf_coeffs, rds_bpf_state); // get the entire RDS data
 
