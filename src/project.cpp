@@ -29,9 +29,30 @@ Ontario, Canada
 #include <pthread.h>
 #include <string>
 
+#include <numeric>
+#include <functional>
+
 void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
-void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
-void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
+void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue, SafeQueue<std::vector<float>> &rds_samples_queue);
+//void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue);
+void dummy_second_consumer_thread(SafeQueue<std::vector<float>> &rds_samples_queue);
+
+// DEBUG STUFF 
+// Function to calculate checksum of a vector
+template<typename T>
+std::size_t vector_checksum(const std::vector<T>& vec) {
+    // Use std::accumulate to calculate the sum of all elements
+    return std::accumulate(vec.begin(), vec.end(), 0,
+        [](std::size_t hash, const T& value) {
+            return hash ^ std::hash<T>{}(value); // Use XOR to combine hashes
+        }
+    );
+}
+
+// Function to print checksum of the vector
+void print_vector_checksum(const std::vector<float>& vec) {
+    std::cout << "Checksum of vector: " << vector_checksum(vec) << std::endl;
+}
 
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
@@ -90,6 +111,8 @@ int main(int argc, char* argv[])
 
 	// Queue for demodulated samples shared between threads
 	SafeQueue<std::vector<float>> demodulated_samples_queue;
+	// Queue for RDS samples shared between threads
+	SafeQueue<std::vector<float>> rds_samples_queue;
 
 	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue));
 	cpu_set_t cpuset;
@@ -99,15 +122,22 @@ int main(int argc, char* argv[])
 						   sizeof(cpu_set_t), 
 						   &cpuset);
 
-	std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue));
+	std::thread audio_consumer_thread(audio_processing_thread, 
+								      std::ref(demodulated_samples_queue), 
+							          std::ref(rds_samples_queue));
 	CPU_ZERO(&cpuset);
     CPU_SET(3, &cpuset);
 	pthread_setaffinity_np(audio_consumer_thread.native_handle(), 
 						   sizeof(cpu_set_t), 
 						   &cpuset);
+	
+	std::thread dummy_consumer_thread(dummy_second_consumer_thread,
+										     std::ref(rds_samples_queue)
+											 );
 
 	rf_processing_thread.join();
 	audio_consumer_thread.join();
+	dummy_consumer_thread.join();
 	
 	return 0;
 }
@@ -179,12 +209,13 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 					  demodulated_samples);
 	
 	demodulated_samples_queue.enqueue(demodulated_samples);
+	std::cerr << "RF frontend enqueued: " << vector_checksum(demodulated_samples) << std::endl;
 	
 	}
 
 }
 
-void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue)
+void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue, SafeQueue<std::vector<float>> &rds_samples_queue)
 {
 
 	static const size_t block_size = config_map.at(mode).block_size;
@@ -251,6 +282,8 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 		   
 	while (1) {
 		std::vector<float> demodulated_samples = demodulated_samples_queue.dequeue();
+		rds_samples_queue.enqueue(demodulated_samples);
+		std::cerr << "Audio processing enqueued: " << vector_checksum(demodulated_samples) << std::endl;
 	
 		convolveFIRResample(float_audio_data,
 							demodulated_samples,
@@ -334,153 +367,280 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 	}
 }
 
-void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_queue)
+void dummy_second_consumer_thread(SafeQueue<std::vector<float>> &rds_samples_queue)
 {
+
 	static const size_t block_size = config_map.at(mode).block_size;
-	static const short int rf_decim = config_map.at(mode).rf_downsample;
-	static const short int rds_upsample = config_map.at(mode).rds.upsample;
-	static const short int rds_downsample = config_map.at(mode).rds.downsample;
-	static const short int rds_sps = config_map.at(mode).rds.sps;
+	static const short int rf_decimation = config_map.at(mode).rf_downsample;
+	static const short int audio_decimation = config_map.at(mode).audio.downsample;
+	static const short int audio_upsample = config_map.at(mode).audio.upsample;
 
-	float rds_decim = rds_downsample/rds_upsample;
+	std::vector<float> mono_coeffs;
+	std::vector<float> mono_state(kMonoNumTaps-1, 0.0);
+	std::vector<float> float_audio_data;
 
-	std::vector<float> rds_bpf_coeffs;
-	std::vector<float> rds_lpf_coeffs;
-	std::vector<float> rds_squared_bpf_coeffs;
-	std::vector<float> rds_rrc_coeffs;
+	// Stereo related:
+	std::vector<float> mono_lpf_state(kMonoNumTaps-1, 0.0);
+	std::vector<float> apf_state(static_cast<int>((kStereoLpfNumTaps-1)/2), 0.0);
 
-	std::vector<float> rds_bpf_state(kRDSBpfNumTaps-1, 0.0);
-	std::vector<float> rds_lpf_state((kRDSLpfNumTaps-1), 0.0); 
-	std::vector<float> rds_apf_state(static_cast<int>((kRDSBpfNumTaps-1)/2), 0);
-	std::vector<float> rds_squared_bpf_state(kRDSSquaredBpfNumTaps-1, 0.0);
-	std::vector<float> rds_rrc_state(kRDSRrcNumTaps-1, 0.0);
+	std::vector<float> pilot_bpf_state(kPilotBpfNumTaps-1, 0.0);
 
-	PllState pll_state_rds = PllState();
+	std::vector<float> stereo_bpf_state(kStereoBpfNumTaps-1, 0.0);
+	std::vector<float> stereo_lpf_state(kStereoLpfNumTaps-1, 0.0);
 
-	std::vector<float> rds_filtered(block_size/(kIQfactor*rf_decim),0.0);
-	std::vector<float> rds_squared(block_size/(kIQfactor*rf_decim),0.0);
-	std::vector<float> rds_pilot(block_size/(kIQfactor*rf_decim),0.0);
-	std::vector<float> nco_rds_out;
-	std::vector<float> rds_delayed(block_size/(kIQfactor*rf_decim), 0.0);
-	std::vector<float> rds_mixed(block_size/(kIQfactor*rf_decim), 0.0);
-	std::vector<float> rds_mixed_lfiltered(block_size/(kIQfactor*rf_decim), 0.0);
-	std::vector<float> rds_rrc_filt(block_size/(kIQfactor*rf_decim), 0.0); //TODO: scale this with the rational resampled size
-	std::vector<float> sampling_points;
-	std::vector<float> sampling_points_aggr;
-	
-	int diff_decode_state = 0;
-	int block_aggr_counter = 0;
-	int block_count = 0;
-	
+	PllState pll_state = PllState();
 
-	int sampling_start_offset = 0;
-	int num_blocks_for_pll_tuning = 20;
-	int num_blocks_for_cdr = 10;
+	std::vector<float> mono_lpf_coeffs;
+	std::vector<float> stereo_bpf_coeffs;
+	std::vector<float> stereo_lpf_coeffs;
+	std::vector<float> pilot_bpf_coeffs;
 
-	int samp_pts_aggr_blocks = 4;
+	std::vector<float> demodulated_samples_delayed(block_size/(kIQfactor*rf_decimation), 0.0);
 
-	int bitstream_select;
-	int bitstream_score_0 = 0;
-	int bitstream_score_1 = 0;
-	int bitstream_select_thresh = 1
-	std::string text = "";
+	std::vector<float> pilot_filtered(block_size/(kIQfactor*rf_decimation), 0.0);
+	std::vector<float> stereo_bpf_filtered(block_size/(kIQfactor*rf_decimation), 0.0);
+	std::vector<float> stereo_mixed(block_size/(kIQfactor*rf_decimation), 0.0);
+	std::vector<float> nco_out; // block_size/rf_decimation + 1
+	std::vector<float> stereo_lpf_filtered(block_size*audio_upsample/(kIQfactor*rf_decimation*audio_decimation), 0.0);
 
-	impulseResponseBPF(kMonoSampleFrequency,
-					   kRDSBpfFcLow,
-					   kRDSBpfFcHigh,
-					   kRDSBpfNumTaps,
-					   rds_bpf_coeffs);
+	std::vector<float> float_mono_data;
 
-	impulseResponseBPF(kMonoSampleFrequency,
-					   kRDSSquaredBpfFcLow,
-					   kRDSSquaredBpfFcHigh,
-					   kRDSSquaredBpfNumTaps,
-					   rds_squared_bpf_coeffs);
+	std::vector<float> float_stereo_left_data(block_size*audio_upsample/(kIQfactor*rf_decimation*audio_decimation), 0.0);
+	std::vector<float> float_stereo_right_data(block_size*audio_upsample/(kIQfactor*rf_decimation*audio_decimation), 0.0);
+
+
+	impulseResponseLPF(kMonoSampleFrequency, 
+					   kMonoCutoffFrequency, 
+					   kMonoNumTaps,
+					   mono_coeffs,
+					   audio_upsample);
 
 	impulseResponseLPF(kMonoSampleFrequency,
-					   kRDSLpfFc,
-					   kRDSLpfNumTaps,
-					   rds_lpf_coeffs);
+					   kStereoLpfFc,
+					   kStereoLpfNumTaps,
+					   stereo_lpf_coeffs);	
+
+	impulseResponseBPF(kMonoSampleFrequency,
+					kStereoBpfFcLow,
+					kStereoBpfFcHigh,
+					kStereoBpfNumTaps,
+					stereo_bpf_coeffs);
 	
-	impulseResponseRRC(kMonoSampleFrequency/rds_decim,
-					   kRDSRrcNumTaps,
-					   rds_rrc_coeffs);
+	impulseResponseBPF(kMonoSampleFrequency,
+					   kPilotBpfFcLow,
+					   kPilotBpfFcHigh,
+					   kPilotBpfNumTaps,
+					   pilot_bpf_coeffs);
+		   
+	while (1) {
+		std::vector<float> demodulated_samples = rds_samples_queue.dequeue();
+		std::cerr << "Dummy processing dequeued: " << vector_checksum(demodulated_samples) << std::endl;
+	
+		convolveFIRResample(float_audio_data,
+							demodulated_samples,
+							mono_coeffs,
+							mono_state,
+							audio_decimation,
+							audio_upsample);	
+			 
+		if (channel == 1) {
+			delayBlock(demodulated_samples,
+					demodulated_samples_delayed,
+					apf_state);
 
+			convolveFIRResample(float_mono_data, 
+						demodulated_samples_delayed,
+						mono_coeffs, 
+						mono_lpf_state,
+						audio_decimation,
+						audio_upsample);	
 
-	while (1) 
-	{
-		fm_demodulated = demodulated_samples_queue.dequeue();
+			convolveFIR(stereo_bpf_filtered,
+						demodulated_samples,
+						stereo_bpf_coeffs,
+						stereo_bpf_state);
+			
+			convolveFIR(pilot_filtered,
+						demodulated_samples,
+						pilot_bpf_coeffs,
+						pilot_bpf_state);
 
-		convolveFIR(rds_filtered, fm_demodulated, rds_bpf_coeffs, rds_bpf_state); // get the entire RDS data
+			fmPll(pilot_filtered,
+				kPilotToneFrequency,
+				kMonoSampleFrequency,
+				pll_state,
+				kPilotNcoScale,
+				nco_out);
+			
+			for (size_t i = 0; i < stereo_bpf_filtered.size(); i++) {
+				stereo_mixed[i] = kMixerGain*nco_out[i]*stereo_bpf_filtered[i];
+			}
 
-		for (unsigned int i = 0; i < rds_filtered.size(); i++)
-			rds_squared[i] = pow(rds_filtered[i],2.0);
+			convolveFIRResample(stereo_lpf_filtered,
+						stereo_mixed,
+						stereo_lpf_coeffs,
+						stereo_lpf_state,
+						audio_decimation,
+						audio_upsample);
 
-		convolveFIR(rds_pilot, rds_squared, rds_squared_bpf_coeffs, rds_squared_bpf_state); // extract the carrier
-
-		fmPll(rds_pilot, kRDSCarrierFreq, kMonoSampleFrequency, pll_state_rds, kRDSNcoScale, nco_rds_out, norm_bandwidth = 0.0025); // lock pll at 57 kHz to pilot
-
-		if (block_count < num_blocks_for_pll_tuning)
-			block_count++;
-			continue;
-
-		// pll is tuned now
-
-		delayBlock(rds_filtered, rds_delayed, rds_apf_state); // delay the rds to match filtering on carrier
-
-		// DEBUG: delete later if needed
-		if (nco_rds_out.size()-1 != rds_delayed.size())
-			std::cerr << "WARNING- sizing error on RDS path! NCO size: " << nco_rds_out.size() << " RDS data size: " rds_delayed.size() << std::endl;
-
-
-		// Mixer!! credit Yash Bhatia, bhatiy1@mcmaster.ca, very cool guy, contact for licensing fees
-		for (unsigned int i = 0; i < rds_delayed.size(); i++)
-			rds_mixed[i] = 2*rds_delayed[i]*nco_rds_out[i];
-
-		convolveFIRResample(rds_mixed_lfiltered, rds_mixed, rds_lpf_coeffs, rds_lpf_state, 0, rds_downsample, rds_upsample); // Filter to 3kHz
-		// TODO: this is not known good, need to test?
-
-		convolveFIR(rds_rrc_filt, rds_mixed_lfiltered, rds_rrc_coeffs, rds_rrc_state); // Convert to a Root Raised Cosine
-
-		// RRC wave established- time to recover data
-
-		if (block_count < num_blocks_for_pll_tuning + num_blocks_for_cdr) // cdr needs to be tuned
-		{
-			block_count++;
-			sampling_start_offset += sampling_star-adjust(rds_rrcfiltered, samples_per_symbol);
-			continue;
+			for (size_t i = 0; i < stereo_lpf_filtered.size(); i++) {
+				float_stereo_left_data[i] = float_mono_data[i] + stereo_lpf_filtered[i];
+				float_stereo_right_data[i] = float_mono_data[i] - stereo_lpf_filtered[i];
+			}
 		}
-		else if (block_count == num_blocks_for_pll_tuning+num_blocks_for_cdr)
-			sampling_start_offset = static_cast<int>sampling_start_offset/num_blocks_for_cdr;
-
-		for (int i = sampling_start_offset; i < rds_rrc_filt.size(); i+=rds_sps)
-			sampling_points.push_back(rds_rrc_filt[i]);
-
-		if (block_aggr_counter == 0)
-		{
-			sampling_points_aggr.clear();
-			sampling_points_aggr.resize(sampling_points.size());
-			sampling_points_aggr = sampling_points; // this is by default a deep copy;
-		}
-		else if (block_aggr_counter > 0)
-		{
-			for (unsigned int i = 0; i < sampling_points.length; i++)
-				sampling_points_aggr.push_back(sampling_points[i]);
-		}
-
-		if (block_aggr_counter<samp_pts_aggr_blocks-1)
-		{
-			block_aggr_counter++;
-			continue;
-		}
-
-		// the aggregating of data is done
-
-		
-		
+		// auto cpu_id = sched_getcpu();
+		// std::cerr << "Audio CPU: " << cpu_id << std::endl;
 
 	}
+}
+
+// void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_queue)
+// {
+// 	static const size_t block_size = config_map.at(mode).block_size;
+// 	static const short int rf_decim = config_map.at(mode).rf_downsample;
+// 	static const short int rds_upsample = config_map.at(mode).rds.upsample;
+// 	static const short int rds_downsample = config_map.at(mode).rds.downsample;
+// 	static const short int rds_sps = config_map.at(mode).rds.sps;
+
+// 	float rds_decim = rds_downsample/rds_upsample;
+
+// 	std::vector<float> rds_bpf_coeffs;
+// 	std::vector<float> rds_lpf_coeffs;
+// 	std::vector<float> rds_squared_bpf_coeffs;
+// 	std::vector<float> rds_rrc_coeffs;
+
+// 	std::vector<float> rds_bpf_state(kRDSBpfNumTaps-1, 0.0);
+// 	std::vector<float> rds_lpf_state((kRDSLpfNumTaps-1), 0.0); 
+// 	std::vector<float> rds_apf_state(static_cast<int>((kRDSBpfNumTaps-1)/2), 0);
+// 	std::vector<float> rds_squared_bpf_state(kRDSSquaredBpfNumTaps-1, 0.0);
+// 	std::vector<float> rds_rrc_state(kRDSRrcNumTaps-1, 0.0);
+
+// 	PllState pll_state_rds = PllState();
+
+// 	std::vector<float> rds_filtered(block_size/(kIQfactor*rf_decim),0.0);
+// 	std::vector<float> rds_squared(block_size/(kIQfactor*rf_decim),0.0);
+// 	std::vector<float> rds_pilot(block_size/(kIQfactor*rf_decim),0.0);
+// 	std::vector<float> nco_rds_out;
+// 	std::vector<float> rds_delayed(block_size/(kIQfactor*rf_decim), 0.0);
+// 	std::vector<float> rds_mixed(block_size/(kIQfactor*rf_decim), 0.0);
+// 	std::vector<float> rds_mixed_lfiltered(block_size/(kIQfactor*rf_decim), 0.0);
+// 	std::vector<float> rds_rrc_filt(block_size/(kIQfactor*rf_decim), 0.0); //TODO: scale this with the rational resampled size
+// 	std::vector<float> sampling_points;
+// 	std::vector<float> sampling_points_aggr;
+	
+// 	int diff_decode_state = 0;
+// 	int block_aggr_counter = 0;
+// 	int block_count = 0;
+	
+
+// 	int sampling_start_offset = 0;
+// 	int num_blocks_for_pll_tuning = 20;
+// 	int num_blocks_for_cdr = 10;
+
+// 	int samp_pts_aggr_blocks = 4;
+
+// 	int bitstream_select;
+// 	int bitstream_score_0 = 0;
+// 	int bitstream_score_1 = 0;
+// 	int bitstream_select_thresh = 1
+// 	std::string text = "";
+
+// 	impulseResponseBPF(kMonoSampleFrequency,
+// 					   kRDSBpfFcLow,
+// 					   kRDSBpfFcHigh,
+// 					   kRDSBpfNumTaps,
+// 					   rds_bpf_coeffs);
+
+// 	impulseResponseBPF(kMonoSampleFrequency,
+// 					   kRDSSquaredBpfFcLow,
+// 					   kRDSSquaredBpfFcHigh,
+// 					   kRDSSquaredBpfNumTaps,
+// 					   rds_squared_bpf_coeffs);
+
+// 	impulseResponseLPF(kMonoSampleFrequency,
+// 					   kRDSLpfFc,
+// 					   kRDSLpfNumTaps,
+// 					   rds_lpf_coeffs);
+	
+// 	impulseResponseRRC(kMonoSampleFrequency/rds_decim,
+// 					   kRDSRrcNumTaps,
+// 					   rds_rrc_coeffs);
+
+
+// 	while (1) 
+// 	{
+// 		fm_demodulated = demodulated_samples_queue.dequeue();
+
+// 		convolveFIR(rds_filtered, fm_demodulated, rds_bpf_coeffs, rds_bpf_state); // get the entire RDS data
+
+// 		for (unsigned int i = 0; i < rds_filtered.size(); i++)
+// 			rds_squared[i] = pow(rds_filtered[i],2.0);
+
+// 		convolveFIR(rds_pilot, rds_squared, rds_squared_bpf_coeffs, rds_squared_bpf_state); // extract the carrier
+
+// 		fmPll(rds_pilot, kRDSCarrierFreq, kMonoSampleFrequency, pll_state_rds, kRDSNcoScale, nco_rds_out, norm_bandwidth = 0.0025); // lock pll at 57 kHz to pilot
+
+// 		if (block_count < num_blocks_for_pll_tuning)
+// 			block_count++;
+// 			continue;
+
+// 		// pll is tuned now
+
+// 		delayBlock(rds_filtered, rds_delayed, rds_apf_state); // delay the rds to match filtering on carrier
+
+// 		// DEBUG: delete later if needed
+// 		if (nco_rds_out.size()-1 != rds_delayed.size())
+// 			std::cerr << "WARNING- sizing error on RDS path! NCO size: " << nco_rds_out.size() << " RDS data size: " rds_delayed.size() << std::endl;
+
+
+// 		// Mixer!! credit Yash Bhatia, bhatiy1@mcmaster.ca, very cool guy, contact for licensing fees
+// 		for (unsigned int i = 0; i < rds_delayed.size(); i++)
+// 			rds_mixed[i] = 2*rds_delayed[i]*nco_rds_out[i];
+
+// 		convolveFIRResample(rds_mixed_lfiltered, rds_mixed, rds_lpf_coeffs, rds_lpf_state, 0, rds_downsample, rds_upsample); // Filter to 3kHz
+// 		// TODO: this is not known good, need to test?
+
+// 		convolveFIR(rds_rrc_filt, rds_mixed_lfiltered, rds_rrc_coeffs, rds_rrc_state); // Convert to a Root Raised Cosine
+
+// 		// RRC wave established- time to recover data
+
+// 		if (block_count < num_blocks_for_pll_tuning + num_blocks_for_cdr) // cdr needs to be tuned
+// 		{
+// 			block_count++;
+// 			sampling_start_offset += sampling_star-adjust(rds_rrcfiltered, samples_per_symbol);
+// 			continue;
+// 		}
+// 		else if (block_count == num_blocks_for_pll_tuning+num_blocks_for_cdr)
+// 			sampling_start_offset = static_cast<int>sampling_start_offset/num_blocks_for_cdr;
+
+// 		for (int i = sampling_start_offset; i < rds_rrc_filt.size(); i+=rds_sps)
+// 			sampling_points.push_back(rds_rrc_filt[i]);
+
+// 		if (block_aggr_counter == 0)
+// 		{
+// 			sampling_points_aggr.clear();
+// 			sampling_points_aggr.resize(sampling_points.size());
+// 			sampling_points_aggr = sampling_points; // this is by default a deep copy;
+// 		}
+// 		else if (block_aggr_counter > 0)
+// 		{
+// 			for (unsigned int i = 0; i < sampling_points.length; i++)
+// 				sampling_points_aggr.push_back(sampling_points[i]);
+// 		}
+
+// 		if (block_aggr_counter<samp_pts_aggr_blocks-1)
+// 		{
+// 			block_aggr_counter++;
+// 			continue;
+// 		}
+
+// 		// the aggregating of data is done
+
+		
+		
+
+// 	}
 
 	
-}
+// }
 
