@@ -382,7 +382,7 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 	std::vector<bool> bitstream_decoded(post_samp_pts_aggr_blocks*rds_spb_aggr/2, 0.0);
 
 	
-	int diff_decode_state = 0;
+	bool diff_decode_state = 0;
 	int post_rrc_filt_block_aggr_counter = 0;
 	int post_sample_block_aggr_counter = 0;
 
@@ -520,6 +520,18 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 						  bitstream_select_thresh);
 		
 		differential_decode_stateful(bitstream_decoded, diff_decode_state, bitstream);
+
+		if (fs_mode == 1) {
+			frame_sync_initial(bitstream_decoded, 
+                        fs_found_count, 
+                        fs_last_found_counter, 
+                        fs_expected_next, 
+                        fs_state_values, 
+                        fs_state_len,
+                        std::vector<bool> next_state)
+
+		}
+{
 
 	}
 
