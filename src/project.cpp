@@ -95,9 +95,10 @@ int main(int argc, char* argv[])
 
 	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue_audio));
 	std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue_audio), std::ref(demodulated_samples_queue_rds));
+	std::thread rds_consumer_thread;
 
 	if (channel == 2) {
-		std::thread rds_consumer_thread(rds_processing_thread, std::ref(demodulated_samples_queue_rds));
+		rds_consumer_thread = std::thread(rds_processing_thread, std::ref(demodulated_samples_queue_rds));
 		
 		#ifndef __APPLE__
 		CPU_ZERO(&cpuset);
