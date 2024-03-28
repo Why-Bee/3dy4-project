@@ -382,7 +382,7 @@ void frame_sync_blockwise(std::vector<bool>& bitstream,
                                 program_service.substr(2*ps_next_up_pos + 2, program_service.length()-1);
 
                 if (ps_num_chars_set == 8) {
-                    std::cerr << "PS: " << program_service;
+                    std::cerr << "PS: " << program_service << std::endl;
                     program_service = "________";
                     ps_num_chars_set = 0;
                 }
