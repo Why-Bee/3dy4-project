@@ -36,16 +36,16 @@ void recover_bitstream(std::vector<bool>& bitstream,
                           const std::vector<float>& sampling_points, 
                           const int bitstream_select_thresh);
 
-void frame_sync_initial(std::vector<bool> bitstream, 
+void frame_sync_initial(const std::vector<bool>& bitstream, 
                         int& found_count, 
                         int& last_found_counter, 
                         char& expected_next, 
-                        std::vector<bool> state_values, 
+                        std::vector<bool>& state_values, 
                         int& state_len);
 
 void frame_sync_blockwise(const std::vector<bool>& bitstream,
                           char& expected_next,
-                          uint16_t& rubish_score,
+                          uint16_t& rubbish_score,
                           uint16_t& rubbish_streak,
                           std::vector<bool>& state_values,
                           int& state_len,

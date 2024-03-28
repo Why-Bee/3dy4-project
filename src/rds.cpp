@@ -238,11 +238,11 @@ def frame_sync_initial(bitstream, found_count, last_found_counter, expected_next
     return found_count, last_found_counter, expected_next, next_state, state_len
 */
 
-void frame_sync_initial(const std::vector<bool> bitstream, 
+void frame_sync_initial(const std::vector<bool>& bitstream, 
                         int& found_count, 
                         int& last_found_counter, 
                         char& expected_next, 
-                        std::vector<bool> state_values, 
+                        std::vector<bool>& state_values, 
                         int& state_len)
 {
     std::vector<bool> twenty_six_bit_value(26, 0);
@@ -321,18 +321,20 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
     std::vector<bool> twenty_six_bit_value;
     twenty_six_bit_value.reserve(kCheckLen);
 
-    for(int start_idx = -state_len; start_idx < static_cast<int>(bitstream.size() - kCheckLen); start_idx += kCheckLen) {
+    for(int start_idx = -state_len; start_idx < static_cast<int>(bitstream.size()-kCheckLen); start_idx+=kCheckLen) {
         if (start_idx < 0) {
-            twenty_six_bit_value.insert(twenty_six_bit_value.end(), 
-                                        state_values.begin(), 
-                                        state_values.end());
-            twenty_six_bit_value.insert(twenty_six_bit_value.end(), 
-                                        bitstream.begin(), 
-                                        bitstream.begin() + kCheckLen - state_len);
+            int j = 0;
+            for (int i = state_len+start_idx; i < state_len; i++, j++) {
+                twenty_six_bit_value[j] = state_values[i];
+            }
+            std::cout << start_idx + kCheckLen << std:: endl;
+            for (int i = 0; i < start_idx+kCheckLen; i++, j++) {
+                twenty_six_bit_value[j] = bitstream[i<0?(bitstream.size()-i) : i];
+            }
         } else {
-            twenty_six_bit_value.insert(twenty_six_bit_value.end(), 
-                                        bitstream.begin() + start_idx, 
-                                        bitstream.begin() + start_idx + kCheckLen);
+            int j = 0;
+            for (int i = start_idx; i < kCheckLen+start_idx; i++, j++)
+                twenty_six_bit_value[j] = bitstream[i];
         }
 
         ten_bit_code = multiply_parity(twenty_six_bit_value);

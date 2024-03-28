@@ -403,7 +403,7 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 	char fs_expected_next = '\0';
 	int fs_state_len = 0;
 	int fs_mode = 1;
-	int fs_init_found_thresh = 6;
+	int fs_init_found_thresh = 4;
 
 	uint16_t fs_rubish_score = 0;
 	uint16_t rs_rubish_streak = 0;
