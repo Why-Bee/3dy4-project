@@ -97,7 +97,7 @@ uint32_t multiply_parity(const std::vector<bool>& matrix1) {
 }
 
 std::pair<bool, char> matches_syndrome(uint32_t ten_bit_val) {
-    std::map<uint32_t. char> les_syndromes = {
+    std::map<uint32_t, char> les_syndromes = {
         {0b1111011000, 'A'},
         {0b1111010100, 'B'},
         {0b1001011100, 'C'},
@@ -123,34 +123,157 @@ void recover_bitstream(std::vector<bool>& bitstream,
                           bool& last_value_state, 
                           const std::vector<float>& sampling_points, 
                           const int bitstream_select_thresh) 
-    {
-     int ll_count0, hh_count0, ll_count1, hh_count1;
-     if (bitstream_select == 0) {
-          symbol_vals_to_bits(bitstream, ll_count0, hh_count0, sampling_points, 0, last_value_state);
-     } else if (bitstream_select == 1) {
-          symbol_vals_to_bits(bitstream, ll_count1, hh_count1, sampling_points, 1, last_value_state);
-     } else if (bitstream_select == -1) {
-          std::vector<bool> bitstream0;
-          std::vector<bool> bitstream1;
-          symbol_vals_to_bits(bitstream0, ll_count0, hh_count0, sampling_points, 0, last_value_state);
-          symbol_vals_to_bits(bitstream1, ll_count1, hh_count1, sampling_points, 1, last_value_state);
-          if ((ll_count0+hh_count0) < (ll_count1+hh_count1)) {
-                bitstream_score_0 += 1;
-                bitstream_score_1 -= 1;
-                if (bitstream_score_0 >= bitstream_select_thresh) {
-                    std::cerr << "SELECTING BITSTREAM 0" << std::endl;
-                    bitstream_select = 0;
-                    bitstream = bitstream0;
-                }
-          } else {
-                bitstream = bitstream1;
-                bitstream_score_1 += 1;
-                bitstream_score_0 -= 1;
-                if (bitstream_score_1 >= bitstream_select_thresh) {
-                    std::cerr << "SELECTING BITSTREAM 1" << std::endl;
-                    bitstream_select = 1;
-                }
-          }
-     }
-     last_value_state = bitstream[bitstream.size()-1];
+{
+    int ll_count0, hh_count0, ll_count1, hh_count1;
+    if (bitstream_select == 0) {
+        symbol_vals_to_bits(bitstream, ll_count0, hh_count0, sampling_points, 0, last_value_state);
+    } else if (bitstream_select == 1) {
+        symbol_vals_to_bits(bitstream, ll_count1, hh_count1, sampling_points, 1, last_value_state);
+    } else if (bitstream_select == -1) {
+        std::vector<bool> bitstream0;
+        std::vector<bool> bitstream1;
+        symbol_vals_to_bits(bitstream0, ll_count0, hh_count0, sampling_points, 0, last_value_state);
+        symbol_vals_to_bits(bitstream1, ll_count1, hh_count1, sampling_points, 1, last_value_state);
+        if ((ll_count0+hh_count0) < (ll_count1+hh_count1)) {
+            bitstream_score_0 += 1;
+            bitstream_score_1 -= 1;
+            if (bitstream_score_0 >= bitstream_select_thresh) {
+                std::cerr << "SELECTING BITSTREAM 0" << std::endl;
+                bitstream_select = 0;
+                bitstream = bitstream0;
+            }
+        } 
+        else {
+            bitstream = bitstream1;
+            bitstream_score_1 += 1;
+            bitstream_score_0 -= 1;
+            if (bitstream_score_1 >= bitstream_select_thresh) {
+                std::cerr << "SELECTING BITSTREAM 1" << std::endl;
+                bitstream_select = 1;
+            }
+        }
     }
+    last_value_state = bitstream[bitstream.size()-1];
+}
+
+void convert(int x, std::vector<bool>& ret) {
+  while(x) {
+    if (x&1)
+      ret.push_back(1);
+    else
+      ret.push_back(0);
+    x>>=1;  
+  }
+  std::reverse(ret.begin(),ret.end());
+}
+
+
+/* cpp implementation of the following code:
+def frame_sync_initial(bitstream, found_count, last_found_counter, expected_next, state_values, state_len):
+    CHECK_LEN = 26
+ 
+    for start_idx in range(-state_len, len(bitstream)-CHECK_LEN):
+        if start_idx < 0:
+            twenty_six_bit_value = np.concatenate((state_values[state_len+start_idx:], bitstream[:CHECK_LEN+start_idx]))
+        else:
+            twenty_six_bit_value = bitstream[start_idx:start_idx+CHECK_LEN]
+            
+        ten_bit_code = multiply_parity(twenty_six_bit_value)
+  
+        is_valid, syndrome = matches_syndrome(ten_bit_code)
+        if is_valid:
+            print("Found Syndrome", syndrome)
+            if found_count > 0:
+                if syndrome != expected_next and last_found_counter == CHECK_LEN:
+                    print(f"FALSE SYNDROME: not expected next ({syndrome}), ", last_found_counter)
+                    found_count = 0
+                    expected_next = None
+                    continue
+                elif syndrome != expected_next:
+                    continue
+                
+            expected_next = next_syndrome_dict[syndrome]
+            found_count += 1
+            last_found_counter = 0
+            print("Good Syndrome,", found_count)
+
+        last_found_counter+=1
+        if last_found_counter > CHECK_LEN:
+            print(f"Did not find the next syndrome {last_found_counter}, resetting")
+            last_found_counter = 0
+            found_count = 0
+            expected_next = None
+  
+    state_len = CHECK_LEN-1
+    next_state = bitstream[-state_len:]
+ 
+    return found_count, last_found_counter, expected_next, next_state, state_len
+*/
+
+void frame_sync_initial(std::vector<bool> bitstream, 
+                        int& found_count, 
+                        int& last_found_counter, 
+                        char& expected_next, 
+                        std::vector<bool> state_values, 
+                        int& state_len,
+                        std::vector<bool> next_state)
+{
+    int check_len = 26;
+    std::vector<bool> twenty_six_bit_value(26, 0);
+    uint32_t ten_bit_code;
+    std::pair<bool, char> p;
+
+    for(int start_idx = -state_len; start_idx < bitstream.size(); start_idx++)
+    {
+        if (start_idx < 0)
+        {
+            for (int i = state_len+start_idx; i < state_values.size(); i++)
+                twenty_six_bit_value.push_back(state_values[i]);
+
+            for (int i = 0; i < check_len+start_idx; i++)
+                twenty_six_bit_value.push_back(bitstream[i]);
+        }
+        else
+        {
+            for (int i = start_idx; i < check_len+start_idx; i++)
+                twenty_six_bit_value.push_back(bitstream[i]);
+        }
+
+        convert(multiply_parity(twenty_six_bit_value), ten_bit_code);
+
+        p = matches_syndrome(ten_bit_code);
+        if (p.first)
+        {
+            std::cerr<<"Found Syndrome: " << p.second << std::endl;
+            if (found_count > 0)
+            {
+                if (p.second != expected_next && last_found_counter == check_len)
+                {
+                    std::cerr<< "False Syndrome: not expected next (" << p.second << ") " << last_found_counter << std::endl;
+                    found_count = 0;
+                    expected_next = '\0';
+                    continue;
+                }
+                else if (p.second != expected_next)
+                    continue;
+            }
+            expected_next = next_syndrome_dict[p.second];
+            found_count++;
+            last_found_counter = 0;
+            std::cerr << "Good syndrome, " << found_count << std::endl;
+        }
+        last_found_counter += 1;
+        if (last_found_counter > check_len)
+        {
+            std::cerr << "did not find next syndrome " << last_found_counter << " ,resetting" << std::endl;
+            last_found_counter = 0;
+            found_count = 0;
+            expected_next = '\0';
+        }
+    }
+    state_len = check_len-1;
+    next_state.clear();
+
+    for (int i = bitstream.size()-state_len; i < bitstream.size(); i++)
+        next_state.push_back(bitstream[i]);
+}

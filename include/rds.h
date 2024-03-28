@@ -31,6 +31,12 @@ const std::vector<std::vector<bool>> parity_matrix =
  {1, 1, 1, 0, 0, 0, 1, 1, 1, 1},
  {1, 1, 0, 0, 0, 1, 1, 0, 1, 1}};
 
+
+const std::map<char, char> next_syndrome_dict{{'A', 'B'}, 
+                                              {'B', 'C'}, 
+                                              {'C', 'D'}, 
+                                              {'P', 'D'}, 
+                                              {'D', 'A'}};
  // Functions
 
  int sampling_start_adjust(const std::vector<float> &block, 
@@ -60,3 +66,13 @@ void recover_bitstream(std::vector<bool>& bitstream,
                           bool& last_value_state, 
                           const std::vector<float>& sampling_points, 
                           const int bitstream_select_thresh);
+
+void convert(int x, std::vector<bool>& ret);
+
+void frame_sync_initial(std::vector<bool> bitstream, 
+                        int& found_count, 
+                        int& last_found_counter, 
+                        char& expected_next, 
+                        std::vector<bool> state_values, 
+                        int& state_len,
+                        std::vector<bool> next_state);
