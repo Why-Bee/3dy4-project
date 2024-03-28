@@ -157,7 +157,7 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 			exit(1);
 		}
 		// auto cpu_id = sched_getcpu();
-		std::cerr << "Read block " << block_id << std::endl;
+		// std::cerr << "Read block " << block_id << std::endl;
 
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
 			raw_bin_data_i[i>>1] = raw_bin_data[i];
@@ -388,7 +388,7 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 	int post_sample_block_aggr_counter = 0;
 
 	int sampling_start_offset = 0;
-	int num_blocks_for_pll_tuning = 20;
+	int num_blocks_for_pll_tuning = 14;
 	int num_blocks_for_cdr = 10;
 	int num_blocks_for_cdr_counter = 0;
 
@@ -403,9 +403,11 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 	char fs_expected_next = '\0';
 	int fs_state_len = 0;
 	int fs_mode = 1;
-	int fs_init_found_thresh = 4;
+	int fs_init_found_thresh = 6;
+	int fs_rubbish_thresh = 100;
 
-	uint16_t fs_rubish_score = 0;
+
+	uint16_t fs_rubbish_score = 0;
 	uint16_t rs_rubish_streak = 0;
 	uint32_t ps_next_up = -1;
 	uint32_t ps_next_up_pos = 0;
@@ -433,6 +435,8 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 	impulseResponseRRC(kMonoSampleFrequency/rds_decim,
 					   kRDSRrcNumTaps,
 					   rds_rrc_coeffs);
+
+	int my_counter = 0;
 
 	for (uint64_t block_count = 0; ;block_count++) 
 	{
@@ -539,6 +543,9 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 						  bitstream_select_thresh);
 		
 		differential_decode_stateful(bitstream_decoded, diff_decode_state, bitstream);
+		
+
+		std::cerr << std::to_string(fs_found_count) << std::endl;
 
 		if (fs_mode == 1) {
 			frame_sync_initial(bitstream_decoded, 
@@ -547,6 +554,7 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 								fs_expected_next, 
 								fs_state_values, 
 								fs_state_len);
+
 			if (fs_found_count >= fs_init_found_thresh) {
 				for (int i = 0; i< fs_last_found_counter; i++) {
 					fs_state_values[i] = fs_state_values[fs_state_values.size()-fs_last_found_counter+i];
@@ -558,7 +566,7 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 		} else if (fs_mode == 2) {
 			frame_sync_blockwise(bitstream_decoded, 
 								 fs_expected_next,
-								 fs_rubish_score,
+								 fs_rubbish_score,
 								 rs_rubish_streak,
 								 fs_state_values,
 								 fs_state_len,
@@ -566,9 +574,18 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 								 ps_next_up_pos, 
 								 ps_num_chars_set,
 								 program_service);
-
+			if (fs_rubbish_score > fs_rubbish_thresh) {
+				std::cerr << "ERROR: RESYNCHRONIZING" << std::endl;
+				// fs_mode == 1;
+				// fs_state_len = 0;
+				// fs_found_count = 0;
+				// fs_last_found_counter = 0;
+				// fs_expected_next = '\0';
+			}
 		}
-	
+
+		std::cerr << program_service << std::endl;
+
 	}
 }
 
