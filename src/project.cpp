@@ -29,8 +29,8 @@ Ontario, Canada
 #include <pthread.h>
 #include <string>
 
-void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio);
-void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio, SafeQueue<std::vector<float>> &demodulated_samples_queue_rds);
+void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio, SafeQueue<std::vector<float>> &demodulated_samples_queue_rds);
+void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio);
 void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_rds);
 
 constexpr float kRfSampleFrequency = 2.4e6;
@@ -93,8 +93,8 @@ int main(int argc, char* argv[])
 	SafeQueue<std::vector<float>> demodulated_samples_queue_audio;
 	cpu_set_t cpuset;
 
-	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue_audio));
-	std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue_audio), std::ref(demodulated_samples_queue_rds));
+	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue_audio),  std::ref(demodulated_samples_queue_rds));
+	std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue_audio));
 	std::thread rds_consumer_thread;
 
 	if (channel == 2) {
@@ -134,7 +134,7 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio)
+void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio, SafeQueue<std::vector<float>> &demodulated_samples_queue_rds)
 
 {
 	static const size_t block_size = config_map.at(mode).block_size;
@@ -175,7 +175,7 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 			exit(1);
 		}
 		// auto cpu_id = sched_getcpu();
-		std::cerr << "Read block " << block_id << std::endl;
+		//std::cerr << "Read block " << block_id << std::endl;
 
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
 			raw_bin_data_i[i>>1] = raw_bin_data[i];
@@ -200,13 +200,13 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 					  demod_state_q, 
 					  demodulated_samples);
 	
-	demodulated_samples_queue_audio.enqueue(demodulated_samples);
-	
+		demodulated_samples_queue_audio.enqueue(demodulated_samples);
+		demodulated_samples_queue_rds.enqueue(demodulated_samples);
 	}
 
 }
 
-void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio, SafeQueue<std::vector<float>> &demodulated_samples_queue_rds)
+void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio)
 {
 
 	static const size_t block_size = config_map.at(mode).block_size;
@@ -273,8 +273,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 		   
 	while (1) {
 		std::vector<float> demodulated_samples = demodulated_samples_queue_audio.dequeue();
-		demodulated_samples_queue_rds.enqueue(demodulated_samples);
-	
+
 		convolveFIRResample(float_audio_data,
 							demodulated_samples,
 							mono_coeffs,
@@ -282,7 +281,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 							audio_decimation,
 							audio_upsample);	
 			 
-		if (channel == 1 || channel == 2) {
+		if (channel > 0) {
 			delayBlock(demodulated_samples,
 					demodulated_samples_delayed,
 					apf_state);
@@ -336,7 +335,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 					else s16_audio_data[k] = static_cast<short int>(float_audio_data[k]*(kMaxUint14+1));
 			}
 		}
-		else if (channel == 1 || channel == 2) { // write stereo data
+		else if (channel > 0) { // write stereo data
 			s16_audio_data.resize(float_stereo_right_data.size()*2);
 			for (unsigned int k = 0; k < float_stereo_right_data.size(); k++){
 				if (std::isnan(float_stereo_right_data[k]) || std::isnan(float_stereo_left_data[k])) {
@@ -350,10 +349,6 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 		}
 
 		fwrite(&s16_audio_data[0], sizeof(short int), s16_audio_data.size(), stdout);
-
-		// auto cpu_id = sched_getcpu();
-		// std::cerr << "Audio CPU: " << cpu_id << std::endl;
-
 	}
 }
 
@@ -488,14 +483,6 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 		convolveFIR(rds_rrc_filt, rds_mixed_lfiltered, rds_rrc_coeffs, rds_rrc_state); // Convert to a Root Raised Cosine
 
 		// RRC wave established- time to recover data
-
-		if (block_count == 120) {
-			std::cerr << "LOGGGGGGGGG" << std::endl;
-			logVector("rds_pll_out", nco_rds_out);
-			logVector("rds_data_apf", rds_delayed);
-			logVector("rds_pilot", rds_pilot);
-			logVector("rds_rrc_filt", rds_rrc_filt);
-		}
 
 		// Aggregate 2 blocks together before sampling
 		if (post_rrc_filt_block_aggr_counter == 0) {

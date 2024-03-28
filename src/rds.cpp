@@ -270,7 +270,7 @@ void frame_sync_initial(const std::vector<bool>& bitstream,
             for (int i = state_len+start_idx; i < state_len; i++, j++) {
                 twenty_six_bit_value[j] = state_values[i];
             }
-            std::cout << start_idx + kCheckLen << std:: endl;
+            //std::cerr << start_idx + kCheckLen << std:: endl;
             for (int i = 0; i < start_idx+kCheckLen; i++, j++) {
                 twenty_six_bit_value[j] = bitstream[i<0?(bitstream.size()-i) : i];
             }
@@ -284,10 +284,10 @@ void frame_sync_initial(const std::vector<bool>& bitstream,
 
         std::tie(is_valid, syndrome) = matches_syndrome(ten_bit_code);
         if (is_valid) {
-            std::cerr<<"Found Syndrome: " << syndrome  << std::endl;
+            //std::cerr<<"Found Syndrome: " << syndrome  << std::endl;
             if (found_count > 0) {
                 if (syndrome != expected_next && last_found_counter == kCheckLen) {
-                    std::cerr<< "False Syndrome: not expected next (" << syndrome << ") " << last_found_counter << std::endl;
+                    //std::cerr<< "False Syndrome: not expected next (" << syndrome << ") " << last_found_counter << std::endl;
                     found_count = 0;
                     expected_next = '\0';
                     continue;
@@ -299,11 +299,11 @@ void frame_sync_initial(const std::vector<bool>& bitstream,
             expected_next = next_syndrome_dict[syndrome];
             found_count++;
             last_found_counter = 0;
-            std::cerr << "Good syndrome, " << found_count << std::endl;
+            //std::cerr << "Good syndrome, " << found_count << std::endl;
         }
         last_found_counter += 1;
         if (last_found_counter > kCheckLen) {
-            std::cerr << "did not find next syndrome " << last_found_counter << " ,resetting" << std::endl;
+            //std::cerr << "did not find next syndrome " << last_found_counter << " ,resetting" << std::endl;
             last_found_counter = 0;
             found_count = 0;
             expected_next = '\0';
@@ -328,7 +328,7 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
                           uint8_t& ps_num_chars_set,
                           std::string& program_service) {
 
-    static int shitty_syndrome_count = 0;
+    static int bad_syndrome_count = 0;
 
     uint16_t ten_bit_code;
 
@@ -341,7 +341,7 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
             for (int i = state_len+start_idx; i < state_len; i++, j++) {
                 twenty_six_bit_value[j] = state_values[i];
             }
-            std::cout << start_idx + kCheckLen << std:: endl;
+            //std::cerr << start_idx + kCheckLen << std:: endl;
             for (int i = 0; i < start_idx+kCheckLen; i++, j++) {
                 twenty_six_bit_value[j] = bitstream[i<0?(bitstream.size()-i) : i];
             }
@@ -356,13 +356,13 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
        auto[is_valid, syndrome] = matches_syndrome(ten_bit_code);
 
        if (!is_valid || syndrome != expected_next) {
-            std::cerr << "shitty syndrome " << ++shitty_syndrome_count << std::endl;
+            //std::cerr << "bad syndrome " << ++bad_syndrome_count << std::endl;
             // order is important here
             rubbish_streak++;
             rubbish_score += kBadSyndromeScore*rubbish_streak;
             syndrome = expected_next;
        } else { 
-            std::cerr << "good syndrome " << syndrome << std::endl;
+            //std::cerr << "good syndrome " << syndrome << std::endl;
 
             rubbish_streak = 0;
             if (rubbish_score > 0) {
