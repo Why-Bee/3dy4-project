@@ -473,9 +473,9 @@ def differential_decode(bool_array,):
     return decoded
 
 def differential_decode_stateful(bool_array, last_val_state):
-    decoded = np.empty(len(bool_array)-1, dtype=bool)
+    decoded = np.empty(len(bool_array), dtype=bool)
     decoded[0] = last_val_state ^ bool_array[0]
-    for i in range(1, len(bool_array)-1):
+    for i in range(1, len(bool_array)):
         decoded[i] = bool_array[i] ^ bool_array[i-1]
     return decoded, bool_array[-1]
 
@@ -593,8 +593,8 @@ def recover_bitstream(sampling_points,
     elif bitstream_select == None:
         bitstream0, ll_count0, hh_count0 = symbol_vals_to_bits(sampling_points, 0, last_value_state)
         bitstream1, ll_count1, hh_count1 = symbol_vals_to_bits(sampling_points, 1, last_value_state)
-        # print(f"0: LL count: {ll_count0}, HH count: {hh_count0}")
-        # print(f"1: LL count: {ll_count1}, HH count: {hh_count1}")
+        print(f"0: LL count: {ll_count0}, HH count: {hh_count0}")
+        print(f"1: LL count: {ll_count1}, HH count: {hh_count1}")
         if (ll_count0+hh_count0) < (ll_count1+hh_count1):
             bitstream_score_0 += 1
             bitstream_score_1 -= 1
@@ -609,4 +609,151 @@ def recover_bitstream(sampling_points,
             if bitstream_score_1 >= bitsteam_select_thresh:
                 print(f"SELECTING BITSTREAM 1")
                 bitstream_select = 1
+    
     return bitstream, bitstream_select, bitstream_score_0, bitstream_score_1, bitstream[-1]
+
+def find_frame_start(bitstream, text):
+    last_start_idx = 0
+    once = 1
+    next_up = 0
+    missed = 0
+    # text = ''
+    check_len = 26
+    for start_idx in range(0, len(bitstream)-check_len):
+        twenty_six_bit_value = bitstream[start_idx:start_idx+check_len]
+        ten_bit_code = multiply_parity(twenty_six_bit_value)
+        is_valid, syndrome = matches_syndrome(ten_bit_code)
+        if is_valid:
+            if (start_idx-last_start_idx) < check_len:
+                if once:
+                    once = 0
+                else:
+                    missed +=1
+                    print("missed one")
+                    
+            # print(f"{start_idx} {start_idx-last_start_idx} found the syndrome: ", syndrome)
+            last_start_idx = start_idx
+
+            if syndrome == 'A':
+                print(f"PI: {hex(concat_bool_arr(twenty_six_bit_value[:16]))}")
+            if syndrome == 'B':
+                print(f"PTY: {(concat_bool_arr(twenty_six_bit_value[6:11]))}")
+                next_up = concat_bool_arr(twenty_six_bit_value[:5])
+                print(f"Next: {next_up}")
+            if syndrome == 'C':
+                if next_up == 4:
+                    text += chr(concat_bool_arr(twenty_six_bit_value[:8]))
+                    text += chr(concat_bool_arr(twenty_six_bit_value[8:16]))
+            if syndrome == 'D':
+                if next_up == 4:
+                    text += chr(concat_bool_arr(twenty_six_bit_value[:8]))
+                    text += chr(concat_bool_arr(twenty_six_bit_value[8:16]))
+    print("text:", text)
+    return text
+
+# THIS IGNORES CPRIME
+next_syndrome_dict = {
+    'A': 'B',
+    'B': 'C',
+    'C': 'D',
+    'Cprime': 'D',
+    'D': 'A'
+}
+
+def frame_sync_initial(bitstream, found_count, last_found_counter, expected_next, state_values, state_len):
+    CHECK_LEN = 26
+ 
+    for start_idx in range(-state_len, len(bitstream)-CHECK_LEN):
+        if start_idx < 0:
+            twenty_six_bit_value = np.concatenate((state_values[state_len+start_idx:], bitstream[:CHECK_LEN+start_idx]))
+        else:
+            twenty_six_bit_value = bitstream[start_idx:start_idx+CHECK_LEN]
+            
+        ten_bit_code = multiply_parity(twenty_six_bit_value)
+  
+        is_valid, syndrome = matches_syndrome(ten_bit_code)
+        if is_valid:
+            print("Found Syndrome", syndrome)
+            if found_count > 0:
+                if syndrome != expected_next and last_found_counter == CHECK_LEN:
+                    print(f"FALSE SYNDROME: not expected next ({syndrome}), ", last_found_counter)
+                    found_count = 0
+                    expected_next = None
+                    continue
+                elif syndrome != expected_next:
+                    continue
+                
+            expected_next = next_syndrome_dict[syndrome]
+            found_count += 1
+            last_found_counter = 0
+            print("Good Syndrome,", found_count)
+
+        last_found_counter+=1
+        if last_found_counter > CHECK_LEN:
+            print(f"Did not find the next syndrome {last_found_counter}, resetting")
+            last_found_counter = 0
+            found_count = 0
+            expected_next = None
+  
+    state_len = CHECK_LEN-1
+    next_state = bitstream[-state_len:]
+ 
+    return found_count, last_found_counter, expected_next, next_state, state_len
+
+def frame_sync_blockwise(bitstream, state_values, state_len):
+    CHECK_LEN = 26
+        
+    if (state_len != len(state_values)):
+        print(f"FUCKKK: {state_len}, {len(state_values)} ")
+    
+    for start_idx in range(-state_len, len(bitstream)-CHECK_LEN, CHECK_LEN):        
+        if start_idx < 0:
+            twenty_six_bit_value = np.concatenate((state_values, bitstream[:CHECK_LEN-state_len]))
+        else:
+            twenty_six_bit_value = bitstream[start_idx:start_idx+CHECK_LEN]
+            
+        ten_bit_code = multiply_parity(twenty_six_bit_value)
+  
+        is_valid, syndrome = matches_syndrome(ten_bit_code)
+        if is_valid:
+            print("Found Syndrome", syndrome)
+        else:
+            print("oh god")
+    
+    
+    next_state_len = (len(bitstream) + state_len) % CHECK_LEN
+    next_state = bitstream[-next_state_len:]
+    
+    return next_state, next_state_len
+    
+
+# def frame_sync(bitstream, sync_mode, expected_next, state_values, state_len):
+# 	CHECK_LEN = 26
+# 	# bitwise find a single syndrome
+# 	if sync_mode == 1:
+# 		for start_idx in range(0, len(bitstream)-CHECK_LEN): # we do the -1 here so that if we find a syndrome we have 26 bits left to find another
+# 			twenty_six_bit_value = bitstream[start_idx:start_idx+CHECK_LEN]
+# 			ten_bit_code = multiply_parity(twenty_six_bit_value)
+# 			is_valid, syndrome = matches_syndrome(ten_bit_code)
+# 			if is_valid:
+# 				next_twenty_six_bit_value = bitstream[start_idx+CHECK_LEN:start_idx+2*CHECK_LEN]
+# 				next_ten_bit_code = multiply_parity(next_twenty_six_bit_value)
+# 				next_is_valid, next_syndrome = matches_syndrome(next_ten_bit_code)
+# 				if next_is_valid and (next_syndrome == next_syndrome_dict[syndrome]):
+# 					sync_mode = 2
+# 					state_len = (len(bitstream)-i)%CHECK_LEN                    
+# 					state_values = bitstream[:-state_len]
+# 					expected_next = None
+# 					return sync_mode, expected_next, state_values, state_len
+# 	# groupwise keep track of sync, get data from groups          
+# 	elif sync_mode == 2:
+# 		for start_idx in range(-state_len, )
+
+        
+# 		for i in range(start_idx%len(bitstream), len(bitstream)-CHECK_LEN):
+# 			twenty_six_bit_value = bitstream[i: i+CHECK_LEN]
+# 			ten_bit_code = multiply_parity(twenty_six_bit_value)
+# 			is_valid, syndrome = matches_syndrome(ten_bit_code)
+# 			if is_valid and syndrome == expected_next:
+# 				start_idx = i+CHECK_LEN
+# 				expected_next = next_syndrome_dict[syndrome]                

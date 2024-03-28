@@ -18,8 +18,8 @@ import math
 # use fmDemodArctan and fmPlotPSD
 from fmSupportLib import fmDemodArctan, fmPlotPSD, own_lfilter, lpCoeff, custom_fm_demod, \
 	  logVector, bpFirwin, fmPll, delayBlock, sampling_start_adjust, upsample, symbol_vals_to_bits, \
-	  differential_decode, multiply_parity, matches_syndrome, find_frame_start, recover_bitstream, \
-      differential_decode_stateful
+	  differential_decode, multiply_parity, matches_syndrome, recover_bitstream, \
+      differential_decode_stateful, frame_sync_initial, frame_sync_blockwise
 from fmRRC import impulseResponseRootRaisedCosine
 
 ################### END IMPORTS ####################################
@@ -86,6 +86,10 @@ bitstream_score_1 = 0
 bitsteam_select_thresh = 1
 text = ''
 
+fs_init_found_count_thresh = 4
+
+CHECK_LEN = 26
+
 
 ################### END SETTINGS ####################################
 ################### STATE VARIABLES ####################################
@@ -121,10 +125,19 @@ pll_state_lastNco_q =  1.0
 
 diff_decode_state = 0
 
+bitstream_state = 0
+
 audio_data = np.array([])
 sampling_points_aggr = np.array([])
 
 block_aggr_counter = 0
+
+fs_found_count = 0
+fs_last_found_counter = 0
+fs_expected_next = None
+fs_state_values = np.array([])
+fs_state_len = 0
+fs_mode = 1 # initial mode
 
 ################### END STATE VARIABLES ####################################
 
@@ -290,8 +303,8 @@ if __name__ == "__main__":
 ################### END CLOCK AND DATA RECOVERY ####################################
 ################### RECOVER BITSTREAM ####################################
 	
-		bitstream, bitstream_select, bitstream_score_0, bitstream_score_1, bitstrea_state = recover_bitstream(
-			sampling_points_aggr, bitstream_select, bitstream_score_0, bitstream_score_1, bitstrea_state, bitsteam_select_thresh
+		bitstream, bitstream_select, bitstream_score_0, bitstream_score_1, bitstream_state = recover_bitstream(
+			sampling_points_aggr, bitstream_select, bitstream_score_0, bitstream_score_1, bitstream_state, bitsteam_select_thresh
 		)
 
 ################### END RECOVER BITSTREAM ####################################
@@ -301,7 +314,17 @@ if __name__ == "__main__":
 
 ################### END DIFFERENTIAL DECODING ####################################
 ################### FRAME SYNCHRONIZATION ####################################
-		text = find_frame_start(bitstream_decoded, text)
+		if fs_mode == 1:
+			fs_found_count, fs_last_found_counter, fs_expected_next, fs_state_values, fs_state_len = frame_sync_initial(
+				bitstream_decoded, fs_found_count, fs_last_found_counter, fs_expected_next, fs_state_values, fs_state_len
+			)
+			if fs_found_count >= fs_init_found_count_thresh:
+				fs_state_values = fs_state_values[-fs_last_found_counter:]
+				fs_state_len = fs_last_found_counter
+				fs_mode = 2
+		elif fs_mode == 2:
+			fs_state_values, fs_state_len = frame_sync_blockwise(bitstream_decoded, fs_state_values, fs_state_len)
+		# text = find_frame_start(bitstream_decoded, text)
 
 # if __name__ == "__main__":
 
