@@ -32,6 +32,9 @@ const std::vector<std::vector<bool>> parity_matrix =
  {1, 1, 1, 0, 0, 0, 1, 1, 1, 1},
  {1, 1, 0, 0, 0, 1, 1, 0, 1, 1}};
 
+constexpr uint8_t kCheckLen = 26;
+constexpr uint8_t kBadSyndromeScore = 10;
+constexpr uint8_t kGoodSyndromeScore = 10;
 
 const std::unordered_map<char, char> next_syndrome_dict{{'A', 'B'}, 
                                               {'B', 'C'}, 
@@ -40,10 +43,10 @@ const std::unordered_map<char, char> next_syndrome_dict{{'A', 'B'},
                                               {'D', 'A'}};
  // Functions
 
- int sampling_start_adjust(const std::vector<float> &block, 
+int sampling_start_adjust(const std::vector<float> &block, 
                            const int samples_per_symbol);
 
- void symbol_vals_to_bits(std::vector<bool>& bool_array, 
+void symbol_vals_to_bits(std::vector<bool>& bool_array, 
                          int& ll_count,
                          int& hh_count, 
                          const std::vector<float>& sampling_points, 
