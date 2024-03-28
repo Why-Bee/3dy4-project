@@ -382,7 +382,7 @@ void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_q
 	int bitstream_select;
 	int bitstream_score_0 = 0;
 	int bitstream_score_1 = 0;
-	int bitstream_select_thresh = 1
+	int bitstream_select_thresh = 1;
 	std::string text = "";
 
 	impulseResponseBPF(kMonoSampleFrequency,
@@ -409,7 +409,7 @@ void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_q
 
 	while (1) 
 	{
-		fm_demodulated = demodulated_samples_queue.dequeue();
+		std::vector<float> fm_demodulated = demodulated_samples_queue.dequeue();
 
 		convolveFIR(rds_filtered, fm_demodulated, rds_bpf_coeffs, rds_bpf_state); // get the entire RDS data
 
@@ -418,7 +418,7 @@ void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_q
 
 		convolveFIR(rds_pilot, rds_squared, rds_squared_bpf_coeffs, rds_squared_bpf_state); // extract the carrier
 
-		fmPll(rds_pilot, kRDSCarrierFreq, kMonoSampleFrequency, pll_state_rds, kRDSNcoScale, nco_rds_out, norm_bandwidth = 0.0025); // lock pll at 57 kHz to pilot
+		fmPll(rds_pilot, kRDSCarrierFreq, kMonoSampleFrequency, pll_state_rds, kRDSNcoScale, nco_rds_out, 0, 0.0025); // lock pll at 57 kHz to pilot
 
 		if (block_count < num_blocks_for_pll_tuning)
 			block_count++;
@@ -430,14 +430,14 @@ void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_q
 
 		// DEBUG: delete later if needed
 		if (nco_rds_out.size()-1 != rds_delayed.size())
-			std::cerr << "WARNING- sizing error on RDS path! NCO size: " << nco_rds_out.size() << " RDS data size: " rds_delayed.size() << std::endl;
+			std::cerr << "WARNING- sizing error on RDS path! NCO size: " << nco_rds_out.size() << " RDS data size: " << rds_delayed.size() << std::endl;
 
 
 		// Mixer!! credit Yash Bhatia, bhatiy1@mcmaster.ca, very cool guy, contact for licensing fees
 		for (unsigned int i = 0; i < rds_delayed.size(); i++)
 			rds_mixed[i] = 2*rds_delayed[i]*nco_rds_out[i];
 
-		convolveFIRResample(rds_mixed_lfiltered, rds_mixed, rds_lpf_coeffs, rds_lpf_state, 0, rds_downsample, rds_upsample); // Filter to 3kHz
+		convolveFIRResample(rds_mixed_lfiltered, rds_mixed, rds_lpf_coeffs, rds_lpf_state, rds_downsample, rds_upsample); // Filter to 3kHz
 		// TODO: this is not known good, need to test?
 
 		convolveFIR(rds_rrc_filt, rds_mixed_lfiltered, rds_rrc_coeffs, rds_rrc_state); // Convert to a Root Raised Cosine
@@ -447,11 +447,11 @@ void rds_processing_thread (SafeQueue<std::vector<float>> &demodulated_samples_q
 		if (block_count < num_blocks_for_pll_tuning + num_blocks_for_cdr) // cdr needs to be tuned
 		{
 			block_count++;
-			sampling_start_offset += sampling_star-adjust(rds_rrcfiltered, samples_per_symbol);
+			sampling_start_offset += sampling_start_adjust(rds_rrc_filt, samples_per_symbol);
 			continue;
 		}
 		else if (block_count == num_blocks_for_pll_tuning+num_blocks_for_cdr)
-			sampling_start_offset = static_cast<int>sampling_start_offset/num_blocks_for_cdr;
+			sampling_start_offset = static_cast<int>(sampling_start_offset/num_blocks_for_cdr);
 
 		for (int i = sampling_start_offset; i < rds_rrc_filt.size(); i+=rds_sps)
 			sampling_points.push_back(rds_rrc_filt[i]);
