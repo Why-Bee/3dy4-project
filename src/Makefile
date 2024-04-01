@@ -2,7 +2,7 @@
 
 CC = g++
 CFLAGS = -c -Wall -O3 -std=c++17
-LDFLAGS = -pthread
+LDFLAGS = -pthread -lncurses
 INCLUDE = -I../include/
 SOURCES = project.cpp iofunc.cpp filter.cpp  fourier.cpp  genfunc.cpp  logfunc.cpp demod.cpp pll.cpp rds.cpp
 OBJECTS = $(SOURCES:.cpp=.o)

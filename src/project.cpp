@@ -27,11 +27,14 @@ Ontario, Canada
 #include <condition_variable>
 #include <atomic>
 #include <pthread.h>
+#include <ncurses.h>
 #include <string>
+
 
 void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio, SafeQueue<std::vector<float>> &demodulated_samples_queue_rds);
 void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio);
-void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_rds);
+void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_rds, SafeQueue<RdsDisplayData>& rds_display_data_queue);
+void rds_display_thread(SafeQueue<RdsDisplayData>& rds_display_data_queue);
 
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
@@ -91,16 +94,19 @@ int main(int argc, char* argv[])
 	// Queue for demodulated samples shared between threads
 	SafeQueue<std::vector<float>> demodulated_samples_queue_rds;
 	SafeQueue<std::vector<float>> demodulated_samples_queue_audio;
-	cpu_set_t cpuset;
+	SafeQueue<RdsDisplayData> rds_display_data_queue;
 
 	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue_audio),  std::ref(demodulated_samples_queue_rds));
 	std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue_audio));
 	std::thread rds_consumer_thread;
+	std::thread rds_data_display_thread;
 
 	if (channel == 2) {
-		rds_consumer_thread = std::thread(rds_processing_thread, std::ref(demodulated_samples_queue_rds));
+		rds_consumer_thread = std::thread(rds_processing_thread, std::ref(demodulated_samples_queue_rds), std::ref(rds_display_data_queue));
+		rds_data_display_thread = std::thread(rds_display_thread, std::ref(rds_display_data_queue));
 		
 		#ifndef __APPLE__
+		cpu_set_t cpuset;
 		CPU_ZERO(&cpuset);
 		CPU_SET(1, &cpuset);
 		pthread_setaffinity_np(rds_consumer_thread.native_handle(), 
@@ -129,6 +135,7 @@ int main(int argc, char* argv[])
 
 	if (channel == 2) {
 		rds_consumer_thread.join();
+		rds_data_display_thread.join();
 	}
 	
 	return 0;
@@ -352,7 +359,8 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 	}
 }
 
-void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_rds)
+void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_rds,
+SafeQueue<RdsDisplayData>& disp_data_queue)
 {
 	static const size_t block_size = config_map.at(mode).block_size;
 	static const short int rf_decim = config_map.at(mode).rf_downsample;
@@ -572,7 +580,8 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 								 ps_next_up,
 								 ps_next_up_pos, 
 								 ps_num_chars_set,
-								 program_service);
+								 program_service,
+								 disp_data_queue);
 
 			if (fs_rubish_streak > fs_rubish_tresh) {
 				fs_mode = 1;
@@ -588,5 +597,20 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 		}
 	
 	}
+}
+
+void rds_display_thread(SafeQueue<RdsDisplayData>& disp_data_queue) {
+	initscr(); // Initialize ncurses
+    while (true) {
+		RdsDisplayData disp_data = disp_data_queue.dequeue();
+
+        clear(); // Clear the screen
+        mvprintw(0, 0, "RDS Data:");
+        mvprintw(1, 0, "Program Information: %d", disp_data.program_information);
+        mvprintw(2, 0, "Program Type: %s", disp_data.program_type.c_str());
+        mvprintw(3, 0, "Program Service: %s", disp_data.program_service.c_str());
+        refresh(); // Refresh the screen
+    }
+    endwin(); // End ncurses
 }
 

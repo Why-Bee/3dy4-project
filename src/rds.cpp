@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "rds.h"
+#include "safequeue.h"
 
 
 // Values
@@ -326,7 +327,8 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
                           uint32_t& ps_next_up,
                           uint32_t& ps_next_up_pos,
                           uint8_t& ps_num_chars_set,
-                          std::string& program_service) {
+                          std::string& program_service,
+                          SafeQueue<RdsDisplayData>& disp_data_queue) {
 
     static int pi = -1;
     static std::string pty = "None", ps = "None";
@@ -398,6 +400,13 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
                     if (ps_num_chars_set == 8 && ps_next_up_pos == 0b11) {
                         ps_num_chars_set = 0;
                         ps = program_service;
+                        disp_data_queue.enqueue(
+                            {
+                                .program_information = pi,
+                                .program_type = pty,
+                                .program_service = ps,
+                            }
+                        );
                     }
                 }
             }

@@ -1,10 +1,17 @@
 #include <vector> 
 #include <unordered_map>
+#include "safequeue.h"
 #pragma once
 
 constexpr uint8_t kCheckLen = 26;
 constexpr uint8_t kBadSyndromeScore = 10;
 constexpr uint8_t kGoodSyndromeScore = 10;
+
+struct RdsDisplayData {
+    int program_information = -1;
+    std::string program_type;
+    std::string program_service;
+};
 
  // Functions
 
@@ -52,4 +59,5 @@ void frame_sync_blockwise(const std::vector<bool>& bitstream,
                           uint32_t& ps_next_up,
                           uint32_t& ps_next_up_pos,
                           uint8_t& ps_num_chars_set,
-                          std::string& program_service);
+                          std::string& program_service,
+                          SafeQueue<RdsDisplayData>& disp_data_queue);
