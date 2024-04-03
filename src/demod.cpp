@@ -9,7 +9,13 @@ Ontario, Canada
 #include "dy4.h"
 #include "demod.h"
 
-// function for FM demodulation without arctan
+
+/**
+ * function for FM demodulation without arctan
+ * 
+ * Num Multiplications:
+ * Num Accumulations:
+ * */
 void fmDemodulator(const std::vector<float>& I, const std::vector<float>& Q, float& prev_I, float& prev_Q, std::vector<float>& fm_demod_samples) {
     fm_demod_samples.resize(I.size());
     float curr_I, curr_Q;

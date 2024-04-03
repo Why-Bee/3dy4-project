@@ -91,6 +91,10 @@ void impulseResponseRRC(float Fs, int num_taps, std::vector<float>& impulseRespo
 	}
 }
 
+/**
+ * Num Mults: x.size() * h.size() / decimation 
+ * Num Accumulations: x.size() * h.size() / decimation 
+ * */  
 void convolveFIR2(std::vector<float> &y, std::vector<float> &x, std::vector<float> &h, std::vector<float> &zi, int decimation)
 {
 	y.clear(); y.resize(x.size()/decimation, 0.0);
@@ -114,8 +118,10 @@ void convolveFIR2(std::vector<float> &y, std::vector<float> &x, std::vector<floa
 
 }
 
-// function to compute the filtered output "y" by doing the convolution
-// of the input data "x" with the impulse response "h"
+/**
+ * Num Multiplications: x.size()*h.size()
+ * Num Accumulations: x.size()*h.size()
+ * */
 void convolveFIR(std::vector<float> &y, const std::vector<float> &x, const std::vector<float> &h, std::vector<float> &zi)
 {
 	// This function convolves x and h to get y, managing state.
@@ -202,6 +208,11 @@ void downsample(std::vector<float> &y,
 		std::cerr << y.size() << std::endl;
 }
 
+/**
+ * @todo Ivan Lange
+ * Num Multiplications: 
+ * Num Accumulations: 
+ * */
 void convolveFIRResample(std::vector<float> &y, 
 					  const std::vector<float> &x, 
 					  const std::vector<float> &h, 
