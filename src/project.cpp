@@ -309,7 +309,11 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 				pll_state,
 				kPilotNcoScale,
 				nco_out);
-			
+
+			/**
+			 * Num Multiplications: stereo_bpf_filtered.size() * 2 
+			 * Num Accumulations: stereo_bpf_filtered.size() * 2 
+			 * */
 			for (size_t i = 0; i < stereo_bpf_filtered.size(); i++) {
 				stereo_mixed[i] = kMixerGain*nco_out[i]*stereo_bpf_filtered[i];
 			}
@@ -321,6 +325,10 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 						audio_decimation,
 						audio_upsample);
 
+			/**
+			 * Num Multiplications: 0
+			 * Num Accumulations: stereo_bpf_filtered.size() * 2 
+			 * */
 			for (size_t i = 0; i < stereo_lpf_filtered.size(); i++) {
 				float_stereo_left_data[i] = float_mono_data[i] + stereo_lpf_filtered[i];
 				float_stereo_right_data[i] = float_mono_data[i] - stereo_lpf_filtered[i];
@@ -329,13 +337,20 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 		std::vector<short int> s16_audio_data;
 
 		if (channel == 0) { // write mono data
+			/**
+			 * Num Multiplications: float_audio_data.size()
+			 * Num Accumulations: float_audio_data.size()
+			 * */
 			s16_audio_data.resize(float_audio_data.size());
 			for (unsigned int k = 0; k < float_audio_data.size(); k++) {
 					if (std::isnan(float_audio_data[k])) s16_audio_data[k] = 0;
 					else s16_audio_data[k] = static_cast<short int>(float_audio_data[k]*(kMaxUint14+1));
 			}
-		}
-		else if (channel > 0) { // write stereo data
+		} else if (channel > 0) { // write stereo data
+			/**
+			 * Num Multiplications: float_audio_data.size() * 2
+			 * Num Accumulations: float_audio_data.size() * 2
+			 * */
 			s16_audio_data.resize(float_stereo_right_data.size()*2);
 			for (unsigned int k = 0; k < float_stereo_right_data.size(); k++){
 				if (std::isnan(float_stereo_right_data[k]) || std::isnan(float_stereo_left_data[k])) {
