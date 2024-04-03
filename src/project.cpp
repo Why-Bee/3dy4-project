@@ -28,6 +28,7 @@ Ontario, Canada
 #include <atomic>
 #include <pthread.h>
 #include <string>
+#include <chrono>
 
 void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio, SafeQueue<std::vector<float>> &demodulated_samples_queue_rds);
 void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio);
@@ -68,6 +69,9 @@ constexpr float kRDSSquaredBpfFcLow = 113.5e3;
 constexpr float kRDSSquaredBpfNumTaps = 101;
 constexpr float kRDSNcoScale = 0.5;
 
+constexpr int kStartTimingBlock = 100;
+constexpr int kNumBlocksForTiming = 200;
+
 constexpr uint16_t kMaxUint14 = 0x3FFF;
 
 #define DEBUG_MODE 0U
@@ -91,7 +95,9 @@ int main(int argc, char* argv[])
 	// Queue for demodulated samples shared between threads
 	SafeQueue<std::vector<float>> demodulated_samples_queue_rds;
 	SafeQueue<std::vector<float>> demodulated_samples_queue_audio;
+	#ifndef __APPLE__
 	cpu_set_t cpuset;
+	#endif
 
 	std::thread rf_processing_thread(rf_frontend_thread, std::ref(demodulated_samples_queue_audio),  std::ref(demodulated_samples_queue_rds));
 	std::thread audio_consumer_thread(audio_processing_thread, std::ref(demodulated_samples_queue_audio));
@@ -164,6 +170,13 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 	raw_bin_data_i.resize(block_size/2);
 	raw_bin_data_q.resize(block_size/2);
 
+	// TIMING
+	std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
+	std::chrono::time_point<std::chrono::high_resolution_clock> stop_time;
+
+	std::vector<float> iq_convolve_fir2_runtimes(kNumBlocksForTiming, 0.0);
+	std::vector<float> fm_demod_runtimes(kNumBlocksForTiming, 0.0);
+
 
 	std::cerr << "block size: " << block_size << std::endl;
 	for (unsigned int block_id = 0; ;block_id++) {
@@ -172,6 +185,8 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 
 		if ((std::cin.rdstate()) != 0){
 			std::cerr << "End of input stream reached" << std::endl;
+			logVector("timing_iq_convolve_fir2", iq_convolve_fir2_runtimes);
+			logVector("timing_fm_demod", fm_demod_runtimes);
 			exit(1);
 		}
 		// auto cpu_id = sched_getcpu();
@@ -182,24 +197,42 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 			raw_bin_data_q[i>>1] = raw_bin_data[i+1];
 		}
 
+		start_time = std::chrono::high_resolution_clock::now();
+
 		convolveFIR2(pre_fm_demod_i, 
 					 raw_bin_data_i,
 					 rf_coeffs, 
 					 rf_state_i,
 					 rf_decimation);
 
+		stop_time = std::chrono::high_resolution_clock::now();
+
+		if (block_id >= kStartTimingBlock && block_id < kStartTimingBlock+kNumBlocksForTiming) {
+			iq_convolve_fir2_runtimes[block_id-kStartTimingBlock] = 
+				static_cast<std::chrono::duration<float, std::milli>>(stop_time-start_time).count();
+		}
+		
 		convolveFIR2(pre_fm_demod_q, 
 					 raw_bin_data_q,
 					 rf_coeffs, 
 					 rf_state_q,
 					 rf_decimation);
 
+		start_time = std::chrono::high_resolution_clock::now();
+
 		fmDemodulator(pre_fm_demod_i, 
 					  pre_fm_demod_q, 
 					  demod_state_i, 
 					  demod_state_q, 
 					  demodulated_samples);
-	
+
+		stop_time = std::chrono::high_resolution_clock::now();
+
+		if (block_id >= kStartTimingBlock && block_id < kStartTimingBlock+kNumBlocksForTiming) {
+			fm_demod_runtimes[block_id-kStartTimingBlock] = 
+				static_cast<std::chrono::duration<float, std::milli>>(stop_time-start_time).count();
+		}
+
 		demodulated_samples_queue_audio.enqueue(demodulated_samples);
 		demodulated_samples_queue_rds.enqueue(demodulated_samples);
 	}
