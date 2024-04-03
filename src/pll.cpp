@@ -10,7 +10,11 @@ Ontario, Canada
 #include "dy4.h"
 
 
-
+/**
+ * @todo Yash
+ * Num Multiplications: 
+ * Num Accumulations: 
+ * */
 void fmPll(const std::vector<float>& pll_in,
            const float freq, 
            const float fs,
