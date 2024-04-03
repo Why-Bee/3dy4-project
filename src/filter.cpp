@@ -209,9 +209,8 @@ void downsample(std::vector<float> &y,
 }
 
 /**
- * @todo Ivan Lange
- * Num Multiplications: 
- * Num Accumulations: 
+ * Num Multiplications: x.size()*(upsampling_factor/decimation)*(2*h.size()/upsampling_factor + x.size())
+ * Num Accumulations:   x.size()*(upsampling_factor/decimation)*h.size()
  * */
 void convolveFIRResample(std::vector<float> &y, 
 					  const std::vector<float> &x, 
