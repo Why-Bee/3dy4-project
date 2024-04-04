@@ -209,7 +209,7 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 			iq_convolve_fir2_runtimes[block_id-kStartTimingBlock] = 
 				static_cast<std::chrono::duration<float, std::milli>>(stop_time-start_time).count();
 		} else if (block_id ==  kStartTimingBlock+kNumBlocksForTiming) { // Dump data
-			logVector("timing_convolve_fir_resample", iq_convolve_fir2_runtimes);
+			logVector("timing_iq_convolve_fir2_runtimes", iq_convolve_fir2_runtimes);
 		}
 		
 		convolveFIR2(pre_fm_demod_q, 
@@ -231,6 +231,8 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 		if (block_id >= kStartTimingBlock && block_id < kStartTimingBlock+kNumBlocksForTiming) {
 			fm_demod_runtimes[block_id-kStartTimingBlock] = 
 				static_cast<std::chrono::duration<float, std::milli>>(stop_time-start_time).count();
+		} else if (block_id ==  kStartTimingBlock+kNumBlocksForTiming) { // Dump data
+			logVector("timing_fm_demod_runtimes", fm_demod_runtimes);
 		}
 
 		demodulated_samples_queue_audio.enqueue(demodulated_samples);
@@ -580,12 +582,13 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 			std::cerr << "sampling start offset " << sampling_start_offset << std::endl; 
 		}
 
+		// Select sample points
 		for (int i = sampling_start_offset, j = 0; i < rds_rrc_filt_aggr.size(); i+=rds_sps, j++) {
 			sampling_points[j] = rds_rrc_filt_aggr[i];
 		}
 
 		if (post_sample_block_aggr_counter == 0) {
-			for (int i = 0; i < size(sampling_points); i++) {
+			for (int i = 0; i < sampling_points.size(); i++) {
 				sampling_points_aggr[i] = sampling_points[i];
 			}
 		} else if (post_sample_block_aggr_counter > 0) {
