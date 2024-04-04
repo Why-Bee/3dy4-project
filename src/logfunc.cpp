@@ -67,3 +67,15 @@ void logVector(const std::string filename, \
 	fd.close();
 }
 
+void logVectorTiming(const std::string filename, \
+	std::vector<float> &y,
+	int curr_block,
+	int start_block,
+	int num_blocks,
+	float data) {
+	if (curr_block >= start_block && curr_block < start_block+num_blocks) {
+		y[curr_block-start_block] = data;
+	} else if (curr_block ==  start_block+num_blocks) { // Dump data
+		logVector("timing/" + filename, y);
+	}
+}

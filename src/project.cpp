@@ -7,6 +7,38 @@ McMaster University
 Ontario, Canada
 */
 
+/**
+ *	RF front end:
+ *	@complete ConvolveFIR2 
+ *	@complete fmDemodulator
+ *
+ *	Audio:
+ *	@complete 	ConvolveFIRREsample
+ *	@complete 	DelayBlock ???????????
+ *	@complete 	ConvolveFIR with stereo audio
+ *	@complete 	convolveFIR with pilot ?????????
+ *	@todo 	fmPll
+ *	@todo 	mixer
+ *	@todo 	convolveFIRResample on stereo lpf
+ *	@todo 	stereo combiner
+ *	@todo 	data dump ????????
+ *	
+ *	RDS Path:
+ *	@todo  	ConvolveFIR BPF
+ *	@todo  	rds squared
+ *	@todo  	rds pll ?????
+ *	@todo  	rds delay block ????
+ *	@todo  	rds mixer
+ *	@todo  	rds convolveFIRResample
+ *	@todo  	convolve fir rrc ??????
+ *	@todo  	we now concat 2 blocks 
+ *	@todo  	select sample points?????
+ *	@todo  	Recover bitstream
+ *	@todo  	differential_decode_stateful
+ *	@todo  	frame_sync_initial ????????
+ *	@todo  	frame_sync_blockwise
+ **/
+
 #include "dy4.h"
 #include "filter.h"
 #include "fourier.h"
@@ -70,7 +102,7 @@ constexpr float kRDSSquaredBpfNumTaps = 101;
 constexpr float kRDSNcoScale = 0.5;
 
 constexpr int kStartTimingBlock = 100;
-constexpr int kNumBlocksForTiming = 200;
+constexpr int kNumBlocksForTiming = 100;
 
 constexpr uint16_t kMaxUint14 = 0x3FFF;
 
@@ -170,13 +202,12 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 	raw_bin_data_i.resize(block_size/2);
 	raw_bin_data_q.resize(block_size/2);
 
-	// TIMING
-	std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
-	std::chrono::time_point<std::chrono::high_resolution_clock> stop_time;
+	/* ------------------------------------ TIMING ------------------------------------ */
+	float duration_ms = 0.0;
 
-	std::vector<float> iq_convolve_fir2_runtimes(kNumBlocksForTiming, 0.0);
-	std::vector<float> fm_demod_runtimes(kNumBlocksForTiming, 0.0);
-
+	std::vector<float> timing_rf_conv2_i_samples(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_rf_fm_demod(kNumBlocksForTiming, 0.0);
+	/* ---------------------------------- END TIMING ---------------------------------- */
 
 	std::cerr << "block size: " << block_size << std::endl;
 	for (unsigned int block_id = 0; ;block_id++) {
@@ -187,30 +218,24 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 			std::cerr << "End of input stream reached" << std::endl;
 			exit(1);
 		}
-		// auto cpu_id = sched_getcpu();
-		//std::cerr << "Read block " << block_id << std::endl;
 
 		for (size_t i = 0; i < raw_bin_data.size(); i+=2){
 			raw_bin_data_i[i>>1] = raw_bin_data[i];
 			raw_bin_data_q[i>>1] = raw_bin_data[i+1];
 		}
 
-		start_time = std::chrono::high_resolution_clock::now();
+		duration_ms = timeFunction([&](){
+			convolveFIR2(pre_fm_demod_i, raw_bin_data_i, rf_coeffs, rf_state_i, rf_decimation);
+		});
 
-		convolveFIR2(pre_fm_demod_i, 
-					 raw_bin_data_i,
-					 rf_coeffs, 
-					 rf_state_i,
-					 rf_decimation);
-
-		stop_time = std::chrono::high_resolution_clock::now();
-
-		if (block_id >= kStartTimingBlock && block_id < kStartTimingBlock+kNumBlocksForTiming) {
-			iq_convolve_fir2_runtimes[block_id-kStartTimingBlock] = 
-				static_cast<std::chrono::duration<float, std::milli>>(stop_time-start_time).count();
-		} else if (block_id ==  kStartTimingBlock+kNumBlocksForTiming) { // Dump data
-			logVector("timing_iq_convolve_fir2_runtimes", iq_convolve_fir2_runtimes);
-		}
+		logVectorTiming(
+			"timing_rf_conv2_i_samples",
+			timing_rf_conv2_i_samples,
+			block_id,
+			kStartTimingBlock,
+			kNumBlocksForTiming,
+			duration_ms
+		);
 		
 		convolveFIR2(pre_fm_demod_q, 
 					 raw_bin_data_q,
@@ -218,22 +243,23 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 					 rf_state_q,
 					 rf_decimation);
 
-		start_time = std::chrono::high_resolution_clock::now();
 
-		fmDemodulator(pre_fm_demod_i, 
-					  pre_fm_demod_q, 
-					  demod_state_i, 
-					  demod_state_q, 
-					  demodulated_samples);
+		duration_ms = timeFunction([&](){
+			fmDemodulator(pre_fm_demod_i, 
+						pre_fm_demod_q, 
+						demod_state_i, 
+						demod_state_q, 
+						demodulated_samples);
+		});
 
-		stop_time = std::chrono::high_resolution_clock::now();
-
-		if (block_id >= kStartTimingBlock && block_id < kStartTimingBlock+kNumBlocksForTiming) {
-			fm_demod_runtimes[block_id-kStartTimingBlock] = 
-				static_cast<std::chrono::duration<float, std::milli>>(stop_time-start_time).count();
-		} else if (block_id ==  kStartTimingBlock+kNumBlocksForTiming) { // Dump data
-			logVector("timing_fm_demod_runtimes", fm_demod_runtimes);
-		}
+		logVectorTiming(
+			"timing_rf_fm_demod",
+			timing_rf_fm_demod,
+			block_id,
+			kStartTimingBlock,
+			kNumBlocksForTiming,
+			duration_ms
+		);
 
 		demodulated_samples_queue_audio.enqueue(demodulated_samples);
 		demodulated_samples_queue_rds.enqueue(demodulated_samples);
@@ -306,87 +332,184 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 					   kPilotBpfNumTaps,
 					   pilot_bpf_coeffs);
 
-
-	std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
-	std::chrono::time_point<std::chrono::high_resolution_clock> stop_time;
-
-	std::vector<float> convolve_fir_resample_runtimes(kNumBlocksForTiming, 0.0);
 	std::vector<float> convolve_fir_runtimes(kNumBlocksForTiming, 0.0);
 	std::vector<float> fm_pll_runtimes(kNumBlocksForTiming, 0.0);
+
+	/* ------------------------------------ TIMING ------------------------------------ */
+	float duration_ms = 0.0;
+
+	std::vector<float> timing_audio_conv_resample_mono(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_audio_delay_block_demod_samples(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_audio_conv_fir_stereo_bpf(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_audio_conv_fir_pilot_bpf(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_audio_fm_pll_pilot(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_audio_mixer(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_audio_conv_fir_mixed_lpf(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_audio_recombiner(kNumBlocksForTiming, 0.0);
+	/* ---------------------------------- END TIMING ---------------------------------- */
 		   
 	for (unsigned int block_id = 0; ;block_id++) {
 		std::vector<float> demodulated_samples = demodulated_samples_queue_audio.dequeue();
 
-		start_time = std::chrono::high_resolution_clock::now();
+		if (channel == 0) {
+			duration_ms = timeFunction([&](){
+				convolveFIRResample(float_audio_data,
+									demodulated_samples,
+									mono_coeffs,
+									mono_state,
+									audio_decimation,
+									audio_upsample);	
+			});
 
-		convolveFIRResample(float_audio_data,
-							demodulated_samples,
-							mono_coeffs,
-							mono_state,
-							audio_decimation,
-							audio_upsample);	
-
-		stop_time = std::chrono::high_resolution_clock::now();
-
-		if (block_id >= kStartTimingBlock && block_id < kStartTimingBlock+kNumBlocksForTiming) {
-			convolve_fir_resample_runtimes[block_id-kStartTimingBlock] = 
-				static_cast<std::chrono::duration<float, std::milli>>(stop_time-start_time).count();
-		} else if (block_id ==  kStartTimingBlock+kNumBlocksForTiming) { // Dump data
-			logVector("timing_convolve_fir_resample", convolve_fir_resample_runtimes);
-		}
-			 
-		if (channel > 0) {
-			delayBlock(demodulated_samples,
-					demodulated_samples_delayed,
-					apf_state);
-
-			convolveFIRResample(float_mono_data, 
+			logVectorTiming(
+				"timing_audio_conv_resample_mono",
+				timing_audio_conv_resample_mono,
+				block_id,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+			);
+		} else if (channel > 0) {
+			duration_ms = timeFunction([&](){
+				delayBlock(demodulated_samples,
 						demodulated_samples_delayed,
-						mono_coeffs, 
-						mono_lpf_state,
-						audio_decimation,
-						audio_upsample);	
+						apf_state);
+			});
 
-			convolveFIR(stereo_bpf_filtered,
-						demodulated_samples,
-						stereo_bpf_coeffs,
-						stereo_bpf_state);
+			logVectorTiming(
+				"timing_audio_delay_block_demod_samples",
+				timing_audio_delay_block_demod_samples,
+				block_id,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+			);
+
+			duration_ms = timeFunction([&](){
+				convolveFIRResample(float_mono_data, 
+							demodulated_samples_delayed,
+							mono_coeffs, 
+							mono_lpf_state,
+							audio_decimation,
+							audio_upsample);
+			});
+
+			logVectorTiming(
+				"timing_audio_conv_resample_mono",
+				timing_audio_conv_resample_mono,
+				block_id,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+			);
+
+			duration_ms = timeFunction([&](){
+				convolveFIR(stereo_bpf_filtered,
+							demodulated_samples,
+							stereo_bpf_coeffs,
+							stereo_bpf_state);
+			});
+
+			logVectorTiming(
+				"timing_audio_conv_fir_stereo_bpf",
+				timing_audio_conv_fir_stereo_bpf,
+				block_id,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+			);
 			
-			convolveFIR(pilot_filtered,
-						demodulated_samples,
-						pilot_bpf_coeffs,
-						pilot_bpf_state);
+			duration_ms = timeFunction([&](){
+				convolveFIR(pilot_filtered,
+							demodulated_samples,
+							pilot_bpf_coeffs,
+							pilot_bpf_state);
+			});
 
-			fmPll(pilot_filtered,
-				kPilotToneFrequency,
-				kMonoSampleFrequency,
-				pll_state,
-				kPilotNcoScale,
-				nco_out);
+			logVectorTiming(
+				"timing_audio_conv_fir_pilot_bpf",
+				timing_audio_conv_fir_pilot_bpf,
+				block_id,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+			);
+
+			duration_ms = timeFunction([&](){
+				fmPll(pilot_filtered,
+					kPilotToneFrequency,
+					kMonoSampleFrequency,
+					pll_state,
+					kPilotNcoScale,
+					nco_out);
+			});
+
+			logVectorTiming(
+				"timing_audio_fm_pll_pilot",
+				timing_audio_fm_pll_pilot,
+				block_id,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+			);
 
 			/**
 			 * Num Multiplications: stereo_bpf_filtered.size() * 2 
 			 * Num Accumulations: stereo_bpf_filtered.size() * 2 
 			 * */
-			for (size_t i = 0; i < stereo_bpf_filtered.size(); i++) {
-				stereo_mixed[i] = kMixerGain*nco_out[i]*stereo_bpf_filtered[i];
-			}
 
-			convolveFIRResample(stereo_lpf_filtered,
-						stereo_mixed,
-						stereo_lpf_coeffs,
-						stereo_lpf_state,
-						audio_decimation,
-						audio_upsample);
+			duration_ms = timeFunction([&](){
+				for (size_t i = 0; i < stereo_bpf_filtered.size(); i++) {
+					stereo_mixed[i] = kMixerGain*nco_out[i]*stereo_bpf_filtered[i];
+				}
+			});
+			
+			logVectorTiming(
+				"timing_audio_mixer",
+				timing_audio_mixer,
+				block_id,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+			);
+
+			duration_ms = timeFunction([&](){
+				convolveFIRResample(stereo_lpf_filtered,
+							stereo_mixed,
+							stereo_lpf_coeffs,
+							stereo_lpf_state,
+							audio_decimation,
+							audio_upsample);
+			});
+
+			logVectorTiming(
+				"timing_audio_conv_fir_mixed_lpf",
+				timing_audio_conv_fir_mixed_lpf,
+				block_id,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+			);
 
 			/**
 			 * Num Multiplications: 0
 			 * Num Accumulations: stereo_bpf_filtered.size() * 2 
 			 * */
-			for (size_t i = 0; i < stereo_lpf_filtered.size(); i++) {
-				float_stereo_left_data[i] = float_mono_data[i] + stereo_lpf_filtered[i];
-				float_stereo_right_data[i] = float_mono_data[i] - stereo_lpf_filtered[i];
-			}
+			duration_ms = timeFunction([&](){
+				for (size_t i = 0; i < stereo_lpf_filtered.size(); i++) {
+					float_stereo_left_data[i] = float_mono_data[i] + stereo_lpf_filtered[i];
+					float_stereo_right_data[i] = float_mono_data[i] - stereo_lpf_filtered[i];
+				}
+			});
+
+			logVectorTiming(
+				"timing_audio_recombiner",
+				timing_audio_recombiner,
+				block_id,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+			);
 		}
 		std::vector<short int> s16_audio_data;
 
