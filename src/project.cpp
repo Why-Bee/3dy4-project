@@ -185,8 +185,6 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 
 		if ((std::cin.rdstate()) != 0){
 			std::cerr << "End of input stream reached" << std::endl;
-			logVector("timing_iq_convolve_fir2", iq_convolve_fir2_runtimes);
-			logVector("timing_fm_demod", fm_demod_runtimes);
 			exit(1);
 		}
 		// auto cpu_id = sched_getcpu();
@@ -210,6 +208,8 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 		if (block_id >= kStartTimingBlock && block_id < kStartTimingBlock+kNumBlocksForTiming) {
 			iq_convolve_fir2_runtimes[block_id-kStartTimingBlock] = 
 				static_cast<std::chrono::duration<float, std::milli>>(stop_time-start_time).count();
+		} else if (block_id ==  kStartTimingBlock+kNumBlocksForTiming) { // Dump data
+			logVector("timing_convolve_fir_resample", iq_convolve_fir2_runtimes);
 		}
 		
 		convolveFIR2(pre_fm_demod_q, 
@@ -303,9 +303,19 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 					   kPilotBpfFcHigh,
 					   kPilotBpfNumTaps,
 					   pilot_bpf_coeffs);
+
+
+	std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
+	std::chrono::time_point<std::chrono::high_resolution_clock> stop_time;
+
+	std::vector<float> convolve_fir_resample_runtimes(kNumBlocksForTiming, 0.0);
+	std::vector<float> convolve_fir_runtimes(kNumBlocksForTiming, 0.0);
+	std::vector<float> fm_pll_runtimes(kNumBlocksForTiming, 0.0);
 		   
-	while (1) {
+	for (unsigned int block_id = 0; ;block_id++) {
 		std::vector<float> demodulated_samples = demodulated_samples_queue_audio.dequeue();
+
+		start_time = std::chrono::high_resolution_clock::now();
 
 		convolveFIRResample(float_audio_data,
 							demodulated_samples,
@@ -313,6 +323,15 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 							mono_state,
 							audio_decimation,
 							audio_upsample);	
+
+		stop_time = std::chrono::high_resolution_clock::now();
+
+		if (block_id >= kStartTimingBlock && block_id < kStartTimingBlock+kNumBlocksForTiming) {
+			convolve_fir_resample_runtimes[block_id-kStartTimingBlock] = 
+				static_cast<std::chrono::duration<float, std::milli>>(stop_time-start_time).count();
+		} else if (block_id ==  kStartTimingBlock+kNumBlocksForTiming) { // Dump data
+			logVector("timing_convolve_fir_resample", convolve_fir_resample_runtimes);
+		}
 			 
 		if (channel > 0) {
 			delayBlock(demodulated_samples,
