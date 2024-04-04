@@ -6,6 +6,7 @@
 
 # Updates to .gitignore
 !.gitignore
+!.gitattributes
 
 # Do not ignore exceptions from the following sub-folders
 !model/
