@@ -229,7 +229,7 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 		});
 
 		logVectorTiming(
-			"timing_rf_conv2_i_samples",
+			"timing_rf_conv2_i_samples_mode"+std::to_string(mode),
 			timing_rf_conv2_i_samples,
 			block_id,
 			kStartTimingBlock,
@@ -253,7 +253,7 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 		});
 
 		logVectorTiming(
-			"timing_rf_fm_demod",
+			"timing_rf_fm_demod_mode"+std::to_string(mode),
 			timing_rf_fm_demod,
 			block_id,
 			kStartTimingBlock,
@@ -362,7 +362,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 			});
 
 			logVectorTiming(
-				"timing_audio_conv_resample_mono",
+				"timing_audio_conv_resample_mono_mode"+std::to_string(mode),
 				timing_audio_conv_resample_mono,
 				block_id,
 				kStartTimingBlock,
@@ -377,7 +377,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 			});
 
 			logVectorTiming(
-				"timing_audio_delay_block_demod_samples",
+				"timing_audio_delay_block_demod_samples_mode"+std::to_string(mode),
 				timing_audio_delay_block_demod_samples,
 				block_id,
 				kStartTimingBlock,
@@ -395,7 +395,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 			});
 
 			logVectorTiming(
-				"timing_audio_conv_resample_mono",
+				"timing_audio_conv_resample_mono_mode"+std::to_string(mode),
 				timing_audio_conv_resample_mono,
 				block_id,
 				kStartTimingBlock,
@@ -411,7 +411,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 			});
 
 			logVectorTiming(
-				"timing_audio_conv_fir_stereo_bpf",
+				"timing_audio_conv_fir_stereo_bpf_mode"+std::to_string(mode),
 				timing_audio_conv_fir_stereo_bpf,
 				block_id,
 				kStartTimingBlock,
@@ -427,7 +427,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 			});
 
 			logVectorTiming(
-				"timing_audio_conv_fir_pilot_bpf",
+				"timing_audio_conv_fir_pilot_bpf_mode"+std::to_string(mode),
 				timing_audio_conv_fir_pilot_bpf,
 				block_id,
 				kStartTimingBlock,
@@ -445,7 +445,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 			});
 
 			logVectorTiming(
-				"timing_audio_fm_pll_pilot",
+				"timing_audio_fm_pll_pilot_mode"+std::to_string(mode),
 				timing_audio_fm_pll_pilot,
 				block_id,
 				kStartTimingBlock,
@@ -465,7 +465,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 			});
 			
 			logVectorTiming(
-				"timing_audio_mixer",
+				"timing_audio_mixer_mode"+std::to_string(mode),
 				timing_audio_mixer,
 				block_id,
 				kStartTimingBlock,
@@ -483,7 +483,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 			});
 
 			logVectorTiming(
-				"timing_audio_conv_fir_mixed_lpf",
+				"timing_audio_conv_fir_mixed_lpf_mode"+std::to_string(mode),
 				timing_audio_conv_fir_mixed_lpf,
 				block_id,
 				kStartTimingBlock,
@@ -503,7 +503,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 			});
 
 			logVectorTiming(
-				"timing_audio_recombiner",
+				"timing_audio_recombiner_mode"+std::to_string(mode),
 				timing_audio_recombiner,
 				block_id,
 				kStartTimingBlock,
