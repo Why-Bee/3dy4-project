@@ -13,8 +13,8 @@ Ontario, Canada
 /**
  * @todo
  * 
- * Num Multiplications:
- * Num Accumulations:
+ * Num Multiplications: I.size() * 5
+ * Num Accumulations: 
  * */
 void fmDemodulator(const std::vector<float>& I, const std::vector<float>& Q, float& prev_I, float& prev_Q, std::vector<float>& fm_demod_samples) {
     fm_demod_samples.resize(I.size());
