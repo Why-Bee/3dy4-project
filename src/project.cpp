@@ -641,39 +641,141 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 					   kRDSRrcNumTaps,
 					   rds_rrc_coeffs);
 
+	/* ------------------------------------ TIMING ------------------------------------ */
+	float duration_ms = 0.0;
+
+	std::vector<float> timing_rds_conv_fir_bpf(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_rds_square_signal(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_rds_conv_fir_pilot(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_rds_fm_pll(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_rds_delay_block(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_rds_mixer(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_rds_conv_resample(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_rds_conv_fir_rrc(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_rds_recov_bitstream(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_rds_diff_decode(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_rds_frame_sync_block(kNumBlocksForTiming, 0.0);
+
+	/* ---------------------------------- END TIMING ---------------------------------- */
+
 	for (uint64_t block_count = 0; ;block_count++) 
 	{
 		std::vector<float> fm_demodulated = demodulated_samples_queue_rds.dequeue();
 
-		convolveFIR(rds_filtered, fm_demodulated, rds_bpf_coeffs, rds_bpf_state); // get the entire RDS data
+		duration_ms = timeFunction([&](){
+			convolveFIR(rds_filtered, fm_demodulated, rds_bpf_coeffs, rds_bpf_state); // get the entire RDS data
+		});
 
-		for (unsigned int i = 0; i < rds_filtered.size(); i++)
-			rds_squared[i] = rds_filtered[i]*rds_filtered[i];
+		logVectorTiming(
+				"timing_rds_conv_fir_bpf"+std::string("_mode")+std::to_string(mode),
+				timing_rds_conv_fir_bpf,
+				block_count,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+		);
 
-		convolveFIR(rds_pilot, rds_squared, rds_squared_bpf_coeffs, rds_squared_bpf_state); // extract the carrier
+		duration_ms = timeFunction([&](){
+			for (unsigned int i = 0; i < rds_filtered.size(); i++)
+				rds_squared[i] = rds_filtered[i]*rds_filtered[i];
+		});	
 
-		fmPll(rds_pilot, kRDSCarrierFreq, kMonoSampleFrequency, pll_state_rds, kRDSNcoScale, nco_rds_out, 0, 0.0005); // lock pll at 57 kHz to pilot
+		logVectorTiming(
+				"timing_rds_square_signal"+std::string("_mode")+std::to_string(mode),
+				timing_rds_square_signal,
+				block_count,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+		);
+		
+		duration_ms = timeFunction([&](){
+			convolveFIR(rds_pilot, rds_squared, rds_squared_bpf_coeffs, rds_squared_bpf_state); // extract the carrier
+		});
+
+		logVectorTiming(
+				"timing_rds_conv_fir_pilot"+std::string("_mode")+std::to_string(mode),
+				timing_rds_conv_fir_pilot,
+				block_count,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+		);
+
+		duration_ms = timeFunction([&](){
+			fmPll(rds_pilot, kRDSCarrierFreq, kMonoSampleFrequency, pll_state_rds, kRDSNcoScale, nco_rds_out, 0, 0.0005); // lock pll at 57 kHz to pilot
+		});
+
+		logVectorTiming(
+				"timing_rds_fm_pll"+std::string("_mode")+std::to_string(mode),
+				timing_rds_fm_pll,
+				block_count,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+		);
 
 		if (block_count < num_blocks_for_pll_tuning)
 			continue;
 
 		// pll is tuned now
+		duration_ms = timeFunction([&](){
+			delayBlock(rds_filtered, rds_delayed, rds_apf_state); // delay the rds to match filtering on carrier
+		});
 
-		delayBlock(rds_filtered, rds_delayed, rds_apf_state); // delay the rds to match filtering on carrier
+		logVectorTiming(
+				"timing_rds_delay_block"+std::string("_mode")+std::to_string(mode),
+				timing_rds_delay_block,
+				block_count,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+		);
 
 		// DEBUG: delete later if needed
 		if (nco_rds_out.size()-1 != rds_delayed.size())
-			std::cerr << "WARNING- sizing error on RDS path! NCO size: " << nco_rds_out.size() << " RDS data size: " << rds_delayed.size() << std::endl;
+			std::cerr << "WARNING: sizing error on RDS path! NCO size: " << nco_rds_out.size() << " RDS data size: " << rds_delayed.size() << std::endl;
 
-		// Mixer!! credit Yash Bhatia, bhatiy1@mcmaster.ca, very cool guy, contact for licensing fees
-		for (unsigned int i = 0; i < rds_delayed.size(); i++)
-			rds_mixed[i] = 2*rds_delayed[i]*nco_rds_out[i];
+		duration_ms = timeFunction([&](){
+			for (unsigned int i = 0; i < rds_delayed.size(); i++)
+				rds_mixed[i] = 2*rds_delayed[i]*nco_rds_out[i];
+		});
 
-		convolveFIRResample(rds_mixed_lfiltered, rds_mixed, rds_lpf_coeffs, rds_lpf_state, rds_downsample, rds_upsample); // Filter to 3kHz
-		// TODO: this is not known good, need to test?
+		logVectorTiming(
+				"timing_rds_mixer"+std::string("_mode")+std::to_string(mode),
+				timing_rds_mixer,
+				block_count,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+		);
+		
+		duration_ms = timeFunction([&](){
+			convolveFIRResample(rds_mixed_lfiltered, rds_mixed, rds_lpf_coeffs, rds_lpf_state, rds_downsample, rds_upsample); // Filter to 3kHz
+		});
 
-		convolveFIR(rds_rrc_filt, rds_mixed_lfiltered, rds_rrc_coeffs, rds_rrc_state); // Convert to a Root Raised Cosine
+		logVectorTiming(
+				"timing_rds_conv_resample"+std::string("_mode")+std::to_string(mode),
+				timing_rds_conv_resample,
+				block_count,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+		);
 
+		duration_ms = timeFunction([&](){
+			convolveFIR(rds_rrc_filt, rds_mixed_lfiltered, rds_rrc_coeffs, rds_rrc_state); // Convert to a Root Raised Cosine
+		});
+
+		logVectorTiming(
+				"timing_rds_recov_bitstream"+std::string("_mode")+std::to_string(mode),
+				timing_rds_recov_bitstream,
+				block_count,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+		);
+		
 		// RRC wave established- time to recover data
 
 		// Aggregate 2 blocks together before sampling
@@ -730,15 +832,37 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 
 		// the aggregating of data is done
 
-		recover_bitstream(bitstream, 
-						  bitstream_select, 
-						  bitstream_score_0, 
-						  bitstream_score_1,
-						  recov_bistream_state,
-						  sampling_points_aggr,
-						  bitstream_select_thresh);
+		duration_ms = timeFunction([&](){
+			recover_bitstream(bitstream, 
+							bitstream_select, 
+							bitstream_score_0, 
+							bitstream_score_1,
+							recov_bistream_state,
+							sampling_points_aggr,
+							bitstream_select_thresh);
+		});
+
+		logVectorTiming(
+				"timing_rds_conv_fir_rrc"+std::string("_mode")+std::to_string(mode),
+				timing_rds_conv_fir_rrc,
+				block_count,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+		);
 		
-		differential_decode_stateful(bitstream_decoded, diff_decode_state, bitstream);
+		duration_ms = timeFunction([&](){
+			differential_decode_stateful(bitstream_decoded, diff_decode_state, bitstream);
+		});
+
+		logVectorTiming(
+			"timing_rds_diff_decode"+std::string("_mode")+std::to_string(mode),
+			timing_rds_diff_decode,
+			block_count,
+			kStartTimingBlock,
+			kNumBlocksForTiming,
+			duration_ms
+		);
 
 		if (fs_mode == 1) {
 			frame_sync_initial(bitstream_decoded, 
@@ -756,16 +880,28 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 				std::cerr << "MODE 2!!!" << std::endl;
 			}
 		} else if (fs_mode == 2) {
-			frame_sync_blockwise(bitstream_decoded, 
-								 fs_expected_next,
-								 fs_rubish_score,
-								 fs_rubish_streak,
-								 fs_state_values,
-								 fs_state_len,
-								 ps_next_up,
-								 ps_next_up_pos, 
-								 ps_num_chars_set,
-								 program_service);
+		
+			duration_ms = timeFunction([&](){
+				frame_sync_blockwise(bitstream_decoded, 
+									fs_expected_next,
+									fs_rubish_score,
+									fs_rubish_streak,
+									fs_state_values,
+									fs_state_len,
+									ps_next_up,
+									ps_next_up_pos, 
+									ps_num_chars_set,
+									program_service);
+			});
+
+			logVectorTiming(
+				"timing_rds_frame_sync_block"+std::string("_mode")+std::to_string(mode),
+				timing_rds_frame_sync_block,
+				block_count,
+				kStartTimingBlock,
+				kNumBlocksForTiming,
+				duration_ms
+			);
 
 			if (fs_rubish_streak > fs_rubish_tresh) {
 				fs_mode = 1;
