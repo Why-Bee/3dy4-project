@@ -30,11 +30,11 @@ struct Config {
     RdsConfig      rds;
 };
 
-void argparse_mode_channel(int argc, char* argv[], int& mode, int& channel)
+void argparse_mode_channel(int argc, char* argv[], int& mode, int& channel, unsigned short int& numTaps)
 {
     if (argc < 2) {
 		std::cerr << "Operating in default mode 0 and channel 0 (mono)" << std::endl;
-	} else if (argc == 2 || argc == 3) {
+	} else if (argc == 4 || argc == 3) {
 		mode = std::atoi(argv[1]);
 		if (mode > 3 || mode < 0) {
 			std::cerr << "Invalid mode entered: " << mode << std::endl;
@@ -42,7 +42,9 @@ void argparse_mode_channel(int argc, char* argv[], int& mode, int& channel)
 		}
 	}
 
-	if (argc == 3) {
+	if (argc == 4) {
+		numTaps = std::atoi(argv[3]);
+
 		if (std::string(argv[2]) == "m") {
 			channel = 0;
 		} else if (std::string(argv[2]) == "s") {
@@ -58,7 +60,7 @@ void argparse_mode_channel(int argc, char* argv[], int& mode, int& channel)
 		std::cerr << "Invalid channel entered: " << argv[2] << std::endl;
 		exit(1);
 		}
-	} else if (argc > 3) {
+	} else if (argc > 4) {
 		std::cerr << "Usage: " << argv[0] << std::endl;
 		std::cerr << "or " << argv[0] << " <mode>" << std::endl;
 		std::cerr << "\t\t <mode> is a value from 0 to 3" << std::endl;

@@ -62,43 +62,38 @@ Ontario, Canada
 #include <string>
 #include <chrono>
 
+int mode    = 0; // mode 0, 1, 2, 3. Default is 0
+int channel = 0; // 1 for mono, 2 for stereo (rds runs in stereo)
+unsigned short int numTaps = 101;
+
 void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio, SafeQueue<std::vector<float>> &demodulated_samples_queue_rds);
 void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_audio);
 void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue_rds);
 
 constexpr float kRfSampleFrequency = 2.4e6;
 constexpr float kRfCutoffFrequency = 100e3;
-constexpr unsigned short int kRfNumTaps = 101;
 
 constexpr float kMonoSampleFrequency = 240e3;
 constexpr float kMonoCutoffFrequency = 16e3;
-constexpr unsigned short int kMonoNumTaps = 101;
 
 constexpr float kStereoBpfFcHigh = 54e3;
 constexpr float kStereoBpfFcLow = 22e3;
-constexpr float kStereoBpfNumTaps = 101;
 
 constexpr float kStereoLpfFc = 38e3;
-constexpr float kStereoLpfNumTaps = 101;
 constexpr float kMixerGain = 2.0;
 
 constexpr float kPilotToneFrequency = 19e3;
 constexpr float kPilotNcoScale = 2.0;
 constexpr float kPilotBpfFcHigh = 19.5e3;
 constexpr float kPilotBpfFcLow = 18.5e3;
-constexpr float kPilotBpfNumTaps = 101;
 constexpr float kIQfactor = 2.0;
 
 constexpr float kRDSBpfFcHigh = 60e3;
 constexpr float kRDSBpfFcLow = 54e3;
-constexpr float kRDSBpfNumTaps = 101;
 constexpr float kRDSLpfFc = 3e3;
-constexpr float kRDSLpfNumTaps = 101;
-constexpr float kRDSRrcNumTaps = 151;
 constexpr float kRDSCarrierFreq = 114e3;
 constexpr float kRDSSquaredBpfFcHigh = 114.5e3;
 constexpr float kRDSSquaredBpfFcLow = 113.5e3;
-constexpr float kRDSSquaredBpfNumTaps = 101;
 constexpr float kRDSNcoScale = 0.5;
 
 constexpr int kStartTimingBlock = 80;
@@ -117,12 +112,9 @@ std::unordered_map<uint8_t, Config> config_map = {
 	{3, {.block_size=115200, .rf_downsample= 9, AudioConfig{.upsample=441, .downsample=3200}, RdsConfig{.upsample=  0, .downsample=   0, .sps= 0, .spb_aggr=0}}},
 };
 
-int mode    = 0; // mode 0, 1, 2, 3. Default is 0
-int channel = 0; // 1 for mono, 2 for stereo (rds runs in stereo)
-
 int main(int argc, char* argv[])
 {
-	argparse_mode_channel(argc, argv, mode, channel);
+	argparse_mode_channel(argc, argv, mode, channel, numTaps);
 
 	// Queue for demodulated samples shared between threads
 	SafeQueue<std::vector<float>> demodulated_samples_queue_rds;
@@ -178,8 +170,8 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 	static const size_t block_size = config_map.at(mode).block_size;
 	static const short int rf_decimation = config_map.at(mode).rf_downsample;
 
-	std::vector<float> rf_state_i(kRfNumTaps-1, 0.0);
-	std::vector<float> rf_state_q(kRfNumTaps-1, 0.0);
+	std::vector<float> rf_state_i(numTaps-1, 0.0);
+	std::vector<float> rf_state_q(numTaps-1, 0.0);
 	
 	float demod_state_i = 0.0;
 	float demod_state_q = 0.0;	
@@ -196,7 +188,7 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 
 	impulseResponseLPF(kRfSampleFrequency, 
 					   kRfCutoffFrequency, 
-					   kRfNumTaps,
+					   numTaps,
 					   rf_coeffs);
 
 	raw_bin_data_i.resize(block_size/2);
@@ -210,7 +202,7 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 	/* ---------------------------------- END TIMING ---------------------------------- */
 
 	for (unsigned int block_id = 0; ;block_id++) {
-	std::cerr << "block size: " << block_size << std::endl;
+	// std::cerr << "block size: " << block_size << std::endl;
 		std::vector<float> raw_bin_data(block_size);
 		readStdinBlockData(block_size, block_id, raw_bin_data);
 
@@ -276,17 +268,17 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 	static const short int audio_upsample = config_map.at(mode).audio.upsample;
 
 	std::vector<float> mono_coeffs;
-	std::vector<float> mono_state(kMonoNumTaps-1, 0.0);
+	std::vector<float> mono_state(numTaps-1, 0.0);
 	std::vector<float> float_audio_data;
 
 	// Stereo related:
-	std::vector<float> mono_lpf_state(kMonoNumTaps-1, 0.0);
-	std::vector<float> apf_state(static_cast<int>((kStereoLpfNumTaps-1)/2), 0.0);
+	std::vector<float> mono_lpf_state(numTaps-1, 0.0);
+	std::vector<float> apf_state(static_cast<int>((numTaps-1)/2), 0.0);
 
-	std::vector<float> pilot_bpf_state(kPilotBpfNumTaps-1, 0.0);
+	std::vector<float> pilot_bpf_state(numTaps-1, 0.0);
 
-	std::vector<float> stereo_bpf_state(kStereoBpfNumTaps-1, 0.0);
-	std::vector<float> stereo_lpf_state(kStereoLpfNumTaps-1, 0.0);
+	std::vector<float> stereo_bpf_state(numTaps-1, 0.0);
+	std::vector<float> stereo_lpf_state(numTaps-1, 0.0);
 
 	PllState pll_state = PllState();
 
@@ -311,25 +303,25 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 
 	impulseResponseLPF(kMonoSampleFrequency, 
 					   kMonoCutoffFrequency, 
-					   kMonoNumTaps,
+					   numTaps,
 					   mono_coeffs,
 					   audio_upsample);
 
 	impulseResponseLPF(kMonoSampleFrequency,
 					   kStereoLpfFc,
-					   kStereoLpfNumTaps,
+					   numTaps,
 					   stereo_lpf_coeffs);	
 
 	impulseResponseBPF(kMonoSampleFrequency,
 					kStereoBpfFcLow,
 					kStereoBpfFcHigh,
-					kStereoBpfNumTaps,
+					numTaps,
 					stereo_bpf_coeffs);
 	
 	impulseResponseBPF(kMonoSampleFrequency,
 					   kPilotBpfFcLow,
 					   kPilotBpfFcHigh,
-					   kPilotBpfNumTaps,
+					   numTaps,
 					   pilot_bpf_coeffs);
 
 	std::vector<float> convolve_fir_runtimes(kNumBlocksForTiming, 0.0);
@@ -482,7 +474,7 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 							audio_upsample);
 			});
 
-			std::cerr << "timing_audio_conv_fir_mixed_lpf_mode"+std::to_string(mode) << " block id: " << block_id << std::endl;
+			// std::cerr << "timing_audio_conv_fir_mixed_lpf_mode"+std::to_string(mode) << " block id: " << block_id << std::endl;
 
 			logVectorTiming(
 				"timing_audio_conv_fir_mixed_lpf_mode"+std::to_string(mode),
@@ -565,11 +557,11 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 	std::vector<float> rds_squared_bpf_coeffs;
 	std::vector<float> rds_rrc_coeffs;
 
-	std::vector<float> rds_bpf_state(kRDSBpfNumTaps-1, 0.0);
-	std::vector<float> rds_lpf_state((kRDSLpfNumTaps-1), 0.0); 
-	std::vector<float> rds_apf_state(static_cast<int>((kRDSBpfNumTaps-1)/2), 0);
-	std::vector<float> rds_squared_bpf_state(kRDSSquaredBpfNumTaps-1, 0.0);
-	std::vector<float> rds_rrc_state(kRDSRrcNumTaps-1, 0.0);
+	std::vector<float> rds_bpf_state(numTaps-1, 0.0);
+	std::vector<float> rds_lpf_state((numTaps-1), 0.0); 
+	std::vector<float> rds_apf_state(static_cast<int>((numTaps-1)/2), 0);
+	std::vector<float> rds_squared_bpf_state(numTaps-1, 0.0);
+	std::vector<float> rds_rrc_state(numTaps-1, 0.0);
 
 	PllState pll_state_rds = PllState();
 
@@ -624,23 +616,23 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 	impulseResponseBPF(kMonoSampleFrequency,
 					   kRDSBpfFcLow,
 					   kRDSBpfFcHigh,
-					   kRDSBpfNumTaps,
+					   numTaps,
 					   rds_bpf_coeffs);
 
 	impulseResponseBPF(kMonoSampleFrequency,
 					   kRDSSquaredBpfFcLow,
 					   kRDSSquaredBpfFcHigh,
-					   kRDSSquaredBpfNumTaps,
+					   numTaps,
 					   rds_squared_bpf_coeffs);
 
 	impulseResponseLPF(kMonoSampleFrequency,
 					   kRDSLpfFc,
-					   kRDSLpfNumTaps,
+					   numTaps,
 					   rds_lpf_coeffs,
 					   rds_upsample);
 	
 	impulseResponseRRC(kMonoSampleFrequency/rds_decim,
-					   kRDSRrcNumTaps,
+					   numTaps,
 					   rds_rrc_coeffs);
 
 	/* ------------------------------------ TIMING ------------------------------------ */
