@@ -101,8 +101,8 @@ constexpr float kRDSSquaredBpfFcLow = 113.5e3;
 constexpr float kRDSSquaredBpfNumTaps = 101;
 constexpr float kRDSNcoScale = 0.5;
 
-constexpr int kStartTimingBlock = 100;
-constexpr int kNumBlocksForTiming = 100;
+constexpr int kStartTimingBlock = 80;
+constexpr int kNumBlocksForTiming = 80;
 
 constexpr uint16_t kMaxUint14 = 0x3FFF;
 
@@ -209,8 +209,8 @@ void rf_frontend_thread(SafeQueue<std::vector<float>> &demodulated_samples_queue
 	std::vector<float> timing_rf_fm_demod(kNumBlocksForTiming, 0.0);
 	/* ---------------------------------- END TIMING ---------------------------------- */
 
-	std::cerr << "block size: " << block_size << std::endl;
 	for (unsigned int block_id = 0; ;block_id++) {
+	std::cerr << "block size: " << block_size << std::endl;
 		std::vector<float> raw_bin_data(block_size);
 		readStdinBlockData(block_size, block_id, raw_bin_data);
 
@@ -482,6 +482,8 @@ void audio_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_
 							audio_upsample);
 			});
 
+			std::cerr << "timing_audio_conv_fir_mixed_lpf_mode"+std::to_string(mode) << " block id: " << block_id << std::endl;
+
 			logVectorTiming(
 				"timing_audio_conv_fir_mixed_lpf_mode"+std::to_string(mode),
 				timing_audio_conv_fir_mixed_lpf,
@@ -652,9 +654,9 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 	std::vector<float> timing_rds_mixer(kNumBlocksForTiming, 0.0);
 	std::vector<float> timing_rds_conv_resample(kNumBlocksForTiming, 0.0);
 	std::vector<float> timing_rds_conv_fir_rrc(kNumBlocksForTiming, 0.0);
-	std::vector<float> timing_rds_recov_bitstream(kNumBlocksForTiming, 0.0);
-	std::vector<float> timing_rds_diff_decode(kNumBlocksForTiming, 0.0);
-	std::vector<float> timing_rds_frame_sync_block(kNumBlocksForTiming, 0.0);
+	std::vector<float> timing_rds_recov_bitstream(kNumBlocksForTiming/4, 0.0);
+	std::vector<float> timing_rds_diff_decode(kNumBlocksForTiming/4, 0.0);
+	std::vector<float> timing_rds_frame_sync_block(kNumBlocksForTiming/4, 0.0);
 
 	/* ---------------------------------- END TIMING ---------------------------------- */
 
@@ -773,8 +775,8 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 		});
 
 		logVectorTiming(
-				"timing_rds_recov_bitstream"+std::string("_mode")+std::to_string(mode),
-				timing_rds_recov_bitstream,
+				"timing_rds_conv_fir_rrc"+std::string("_mode")+std::to_string(mode),
+				timing_rds_conv_fir_rrc,
 				block_count,
 				kStartTimingBlock,
 				kNumBlocksForTiming,
@@ -848,11 +850,11 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 		});
 
 		logVectorTiming(
-				"timing_rds_conv_fir_rrc"+std::string("_mode")+std::to_string(mode),
-				timing_rds_conv_fir_rrc,
-				block_count,
-				kStartTimingBlock,
-				kNumBlocksForTiming,
+				"timing_rds_recov_bitstream"+std::string("_mode")+std::to_string(mode),
+				timing_rds_recov_bitstream,
+				block_count/4,
+				kStartTimingBlock/4,
+				kNumBlocksForTiming/4,
 				duration_ms
 		);
 		
@@ -863,9 +865,9 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 		logVectorTiming(
 			"timing_rds_diff_decode"+std::string("_mode")+std::to_string(mode),
 			timing_rds_diff_decode,
-			block_count,
-			kStartTimingBlock,
-			kNumBlocksForTiming,
+			block_count/4,
+			kStartTimingBlock/4,
+			kNumBlocksForTiming/4,
 			duration_ms
 		);
 
@@ -902,9 +904,9 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 			logVectorTiming(
 				"timing_rds_frame_sync_block"+std::string("_mode")+std::to_string(mode),
 				timing_rds_frame_sync_block,
-				block_count,
-				kStartTimingBlock,
-				kNumBlocksForTiming,
+				block_count/4,
+				kStartTimingBlock/4,
+				kNumBlocksForTiming/4,
 				duration_ms
 			);
 
