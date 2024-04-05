@@ -55,6 +55,7 @@ const std::unordered_map<uint32_t, std::string> program_type_dict{
                                               {9, "Top 40"},
                                               {10, "Country"}};
 
+
 int sampling_start_adjust(const std::vector<float> &block, const int samples_per_symbol) {
     int abs_min_idx = 0;
     float abs_min = std::abs(block[abs_min_idx]);
@@ -72,6 +73,10 @@ int sampling_start_adjust(const std::vector<float> &block, const int samples_per
 
 
 // modifies: bool-array, ll_count, hh_count
+/**
+ * Num Multiplications: 0
+ * Num Accumulations: sampling_points.size()
+ * */
 void symbol_vals_to_bits(std::vector<bool>& bool_array, 
                          int& ll_count,
                          int& hh_count, 
@@ -169,6 +174,10 @@ std::pair<bool, char> matches_syndrome(uint32_t ten_bit_val) {
 
 // modifies: bitstream, bitstream_select, bitstream_score_0, bitstream_score_1, last_value_state
 // TODO: consider default
+/**
+ * Num Multiplications: 0
+ * Num Accumulations: sampling_points.size()
+ * */
 void recover_bitstream(std::vector<bool>& bitstream, 
                           int& bitstream_select, 
                           int& bitstream_score_0, 

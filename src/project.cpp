@@ -736,6 +736,11 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 		if (nco_rds_out.size()-1 != rds_delayed.size())
 			std::cerr << "WARNING: sizing error on RDS path! NCO size: " << nco_rds_out.size() << " RDS data size: " << rds_delayed.size() << std::endl;
 
+		// Mixer!! credit Yash Bhatia, bhatiy1@mcmaster.ca, very cool guy, contact for licensing fees
+		/**
+		 * Num Multiplications: rds_delayed.size()
+		 * Num Accumulations: 0
+		 * */
 		duration_ms = timeFunction([&](){
 			for (unsigned int i = 0; i < rds_delayed.size(); i++)
 				rds_mixed[i] = 2*rds_delayed[i]*nco_rds_out[i];
@@ -822,7 +827,7 @@ void rds_processing_thread(SafeQueue<std::vector<float>> &demodulated_samples_qu
 				sampling_points_aggr[offset + i] = sampling_points[i];
 			}
 		}
-
+	
 		if (post_sample_block_aggr_counter < (post_samp_pts_aggr_blocks-1)) {
 			post_sample_block_aggr_counter++;
 			continue;
